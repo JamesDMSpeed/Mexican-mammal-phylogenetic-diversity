@@ -3,6 +3,8 @@ rm(list=ls())
 require(raster)
 require(rgdal)
 
+#PRUEBAGIT
+
 
 #Mexico outline
 mexico<-getData('GADM',country='MEX',level=0)
