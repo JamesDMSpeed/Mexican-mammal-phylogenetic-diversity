@@ -1,5 +1,6 @@
 #Mexican mammals
 rm(list=ls())
+install.packages("rgdal")
 require(raster)
 require(rgdal)
 
@@ -80,7 +81,15 @@ filelist<-list.files('MexicoMammalsRaster',full.names = T)
 filelist
 #Stack up
 mexicomammalstack<-stack(filelist)
+mexicomammalstack
+
+plot(mexicomammalstack[[1]])
+plot(mexicomammalstack$Castor.canadensis)
+
+mexicoEA<-spTransform(mexico,crs(mexicomammalstack))
+plot(mexicoEA,add=T)
 
 
-
+plot(mexicomammalstack[[1]])
+plot(mexicomammalstack$Romerolagus.diazi)
 
