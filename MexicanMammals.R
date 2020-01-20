@@ -1,8 +1,14 @@
 #Mexican mammals
 rm(list=ls())
-install.packages("rgdal")
+#install.packages("rgdal")
+#install.packages("sp")
+#install.packages("rasterVis")
+
 require(raster)
+require(rasterVis)
 require(rgdal)
+require(sp)
+
 
 #Mexico outline
 mexico<-getData('GADM',country='MEX',level=0)
@@ -13,7 +19,7 @@ mexalt<-getData('alt',country='MEX')
 
 #ICUN mammal data
 #mammal<-readOGR(dsn="/Users/alejandratomasini/Escritorio/R/SP_MX_488", layer="mml_mx", encoding="NULL", use_iconv="FALSE")
-mammal<-readOGR('mammal shapefile','mml_mx')
+mammal<-readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/SP_MX_488", layer = "mml_mx")
 mammal
 
 
@@ -92,4 +98,63 @@ plot(mexicoEA,add=T)
 
 plot(mexicomammalstack[[1]])
 plot(mexicomammalstack$Romerolagus.diazi)
+
+
+#Species richness
+#mexmam_sr<-rasterize(mex_mammalEA,r1km,field='binomial',fun=function(x, ...) {length(unique(na.omit(x)))})#Need to do by levels since some species have multiple polygons
+#mexmam_sr_m<-mask(mexmam_sr,mexelev)
+
+mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
+mexmam_sr10km<-sum(mexicomammalstack_10km,na.rm = T)
+mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
+
+levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
+  layer(sp.polygons(mexico,lwd=0.5))
+
+writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
+summary(mexmam_sr_m)#1-121 species
+
+mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
+ levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
+  + layer(sp.polygons(mexico,lwd=0.5))
+ #mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
+ 
+ 
+
+
+#PA Mexico
+protected_areas <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/AP_FED.shp", encoding=NULL, use_iconv=TRUE)
+plot(protected_areas) #Only federal
+PA_E_P <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/ANP_EST_PRIV/AP_EST.shp", encoding=NULL, use_iconv=TRUE)
+plot(PA_E_P) #Estatales y privadas  
+ALLPA <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/UNION_ALL_AP/ALL_AP_MX.shp", encoding=NULL, use_iconv=TRUE)
+plot(ALLPA) #This is all federal, private and statal Protected Areas
+
+
+#FVT
+FVT <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/FVT/FVT_new.shp", encoding=NULL, use_iconv=TRUE)
+plot(FVT)
+
+
+#Reprojecting to Datum=ITRF 92. All AP, FVT and SR. proj=Lambert conformal conic
+#Not sure if lcc has correct Datum. 
+lcc <- CRS("+proj=lcc +lat_1=17.5 +lat_2=19.5 +lat_0=12 +lon_0=-102 +x_0=2500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+PA_lcc <- spTransform(protected_areas, lcc) # protected areas with Lambert conformal conic (LCC)
+PA_EP_lcc <- spTransform(PA_E_P, lcc)
+ALLPA_lcc <- spTransform(ALLPA, lcc)
+FVT_lcc <- spTransform(FVT, lcc)
+
+#we were not sure how to reproject the raster 
+new2 <- spTransform(protected_areas, proj4string(mexicomammalstack_10km)) # protected areas with raster CRS
+FVT2 <- spTransform(FVT, proj4string(mexicomammalstack_10km))
+ALLPA2 <- spTransform(ALLPA, proj4string(mexicomammalstack_10km))
+
+
+# Plot
+image(mexmam_sr10km_m) # plot raster
+plot(new2, add=TRUE) # add vector on top
+plot(FVT2, add=TRUE)
+plot(ALLPA2, add=TRUE)
+
+
 
