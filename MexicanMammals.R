@@ -115,7 +115,7 @@ summary(mexmam_sr_m)#1-121 species
 
 mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
  levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
-  + layer(sp.polygons(mexico,lwd=0.5))
+   layer(sp.polygons(mexico,lwd=0.5))
  #mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
  
  
@@ -156,4 +156,9 @@ plot(FVT2, add=TRUE)
 plot(ALLPA2, add=TRUE)
 
 
+#For saving and loading rasters
 
+# saving
+writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
+#Loading
+tiff_SR<-raster('MexicoMammalSpeciesRichness_10km.tif')
