@@ -19,8 +19,7 @@ mexalt<-getData('alt',country='MEX')
 
 #ICUN mammal data
 #mammal<-readOGR(dsn="/Users/alejandratomasini/Escritorio/R/SP_MX_488", layer="mml_mx", encoding="NULL", use_iconv="FALSE")
-mammal<-readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/SP_MX_488", layer = "mml_mx")
-mammal
+#mammal
 
 
 # #Subsample only species partly overlapping with Mexico border
