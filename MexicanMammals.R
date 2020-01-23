@@ -89,7 +89,7 @@ mexicomammalstack<-stack(filelist)
 mexicomammalstack
 
 plot(mexicomammalstack[[1]])
-plot(mexicomammalstack$Castor.canadensis)
+plot(mexicomammalstack$Zygogeomys.trichopus)
 
 mexicoEA<-spTransform(mexico,crs(mexicomammalstack))
 plot(mexicoEA,add=T)
