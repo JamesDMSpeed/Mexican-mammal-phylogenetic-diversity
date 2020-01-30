@@ -143,6 +143,8 @@ PA_EP_lcc <- spTransform(PA_E_P, lcc)
 ALLPA_lcc <- spTransform(ALLPA, lcc)
 FVT_lcc <- spTransform(FVT, lcc)
 
+
+
 #we were not sure how to reproject the raster 
 new2 <- spTransform(protected_areas, proj4string(mexicomammalstack_10km)) # protected areas with raster CRS
 FVT2 <- spTransform(FVT, proj4string(mexicomammalstack_10km))
@@ -159,6 +161,61 @@ plot(ALLPA2, add=TRUE)
 #For saving and loading rasters
 
 # saving
-writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
+#writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 #Loading
 tiff_SR<-raster('MexicoMammalSpeciesRichness_10km.tif')
+plot(tiff_SR)
+
+#reprokecting SR raster
+#SR_lcc is the name of the SR raster file with the correct projection
+SR_lcc<-projectRaster(tiff_SR,crs = lcc)
+
+
+
+
+# #Phylogeny --------------------------------------------------------------
+
+#Read in phylogeny
+phylogeny<-read.tree('Phylogeny/BestTree.newick')
+plot(phylogeny)
+phylogeny$tip.label
+
+#Change format of tip.labels to match species data
+phylogeny$tip.label<-gsub('_','.',phylogeny$tip.label)
+
+#Match synonym names #Complete
+phylogeny$tip.label[phylogeny$tip.label=="Anas.querquedula"] <- "Spatula.querquedula"
+phylogeny$tip.label[phylogeny$tip.label=="Anser.cygnoides"]<-  "Anser.cygnoid"
+#phylogeny$tip.label[phylogeny$tip.label=="Chen.rossii"]<- "Anser.rossii" 
+#phylogeny$tip.label[phylogeny$tip.label=="Spermophilus.parryii"]<-"Urocitellus.parryii"
+
+
+#Convert raster stack to community dataframe
+communitydata<- getValues(herbivore_dataset3)
+#Replace NA with 0
+communitydata[is.na(communitydata)]<-0
+
+#Use picante to trim community and phylogenetic data
+phydata<-match.phylo.comm(phylogeny,communitydata)
+
+###
+##Check through the dropped species carefully and fix any that are errors.###
+###Checked, No errors, extra species in phylogeny should be dropped.
+#
+##Locate spatial data for those that are missing
+###
+
+#Calculate phylogenetic diversity
+phydiv<-pd(phydata$comm,phydata$phy,include.root=T)
+
+#Rasterize this
+phydivraster<-raster(speciesrichness)
+phydivraster<-setValues(phydivraster,phydiv$PD)
+phydivraster<-mask(phydivraster,speciesrichness,maskvalue=NA)
+
+levelplot(phydivraster,par.settings=YlOrRdTheme,margin=F)+
+   layer(sp.polygons(bPolslaea))+
+   layer(sp.polygons(arczones_laea,lty=2))
+
+
+
