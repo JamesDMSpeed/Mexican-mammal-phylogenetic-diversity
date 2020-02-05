@@ -176,14 +176,21 @@ SR_lcc<-projectRaster(tiff_SR,crs = lcc)
 # #Phylogeny --------------------------------------------------------------
 
 #Read in phylogeny
-phylogeny<-read.tree('Phylogeny/BestTree.newick')
+install.packages("picante")
+require(picante)
+phylogeny<-read.tree('TREE_R_BN.nwk')
 plot(phylogeny)
 phylogeny$tip.label
 
 #Change format of tip.labels to match species data
 phylogeny$tip.label<-gsub('_','.',phylogeny$tip.label)
 
-#Match synonym names #Complete
+#Match synonym names
+
+names(mexicomammalstack)[!names(mexicomammalstack) %in% phylogeny$tip.label]
+#
+phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack)]
+
 phylogeny$tip.label[phylogeny$tip.label=="Anas.querquedula"] <- "Spatula.querquedula"
 phylogeny$tip.label[phylogeny$tip.label=="Anser.cygnoides"]<-  "Anser.cygnoid"
 #phylogeny$tip.label[phylogeny$tip.label=="Chen.rossii"]<- "Anser.rossii" 
