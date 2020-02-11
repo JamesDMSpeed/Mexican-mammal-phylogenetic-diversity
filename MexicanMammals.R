@@ -191,11 +191,11 @@ names(mexicomammalstack)[!names(mexicomammalstack) %in% phylogeny$tip.label]
 #
 phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack)]
 
-phylogeny$tip.label[phylogeny$tip.label=="Anas.querquedula"] <- "Spatula.querquedula"
-phylogeny$tip.label[phylogeny$tip.label=="Anser.cygnoides"]<-  "Anser.cygnoid"
-#phylogeny$tip.label[phylogeny$tip.label=="Chen.rossii"]<- "Anser.rossii" 
-#phylogeny$tip.label[phylogeny$tip.label=="Spermophilus.parryii"]<-"Urocitellus.parryii"
-
+phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.bullatus34"] <- "SPeromyscus.bullatus"
+phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.melanurus11"]<-  "Peromyscus.melanurus"
+phylogeny$tip.label[phylogeny$tip.label=="Tamias.durangae"]<- "Neotamias.durangae"         
+phylogeny$tip.label[phylogeny$tip.label=="Tamias.bulleri"]<-"Neotamias.bulleri"
+mexicomammalstack$names[mexicomammalstack$names=="Tamias.bulleri"]<-"Neotamias.bulleri"
 
 #Convert raster stack to community dataframe
 communitydata<- getValues(herbivore_dataset3)
