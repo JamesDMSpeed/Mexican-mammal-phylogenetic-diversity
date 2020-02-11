@@ -171,8 +171,6 @@ plot(tiff_SR)
 SR_lcc<-projectRaster(tiff_SR,crs = lcc)
 
 
-
-
 # #Phylogeny --------------------------------------------------------------
 
 #Read in phylogeny
@@ -185,12 +183,11 @@ phylogeny$tip.label
 #Change format of tip.labels to match species data
 phylogeny$tip.label<-gsub('_','.',phylogeny$tip.label)
 
-#Match synonym names
-
+#Do I have same list of sp. in spatial data and phylogeny?
 names(mexicomammalstack)[!names(mexicomammalstack) %in% phylogeny$tip.label]
-#
 phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack)]
 
+#Match synonym names
 phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.bullatus34"] <- "SPeromyscus.bullatus"
 phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.melanurus11"]<-  "Peromyscus.melanurus"
 phylogeny$tip.label[phylogeny$tip.label=="Tamias.durangae"]<- "Neotamias.durangae"         
