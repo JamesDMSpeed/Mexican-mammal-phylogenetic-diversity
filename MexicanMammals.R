@@ -188,14 +188,28 @@ names(mexicomammalstack)[!names(mexicomammalstack) %in% phylogeny$tip.label]
 phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack)]
 
 #Match synonym names
-phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.bullatus34"] <- "SPeromyscus.bullatus"
+phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.bullatus34"] <- "Peromyscus.bullatus"
 phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.melanurus11"]<-  "Peromyscus.melanurus"
 phylogeny$tip.label[phylogeny$tip.label=="Tamias.durangae"]<- "Neotamias.durangae"         
 phylogeny$tip.label[phylogeny$tip.label=="Tamias.bulleri"]<-"Neotamias.bulleri"
-mexicomammalstack$names[mexicomammalstack$names=="Tamias.bulleri"]<-"Neotamias.bulleri"
+names(mexicomammalstack) [names(mexicomammalstack) =="Cryptotis.mexicana"]<-"Cryptotis.mexicanus"
+names(mexicomammalstack) [names(mexicomammalstack) =="Cryptotis.obscura"]<-"Cryptotis.obscurus"
+names(mexicomammalstack) [names(mexicomammalstack) =="Baeodon.gracilis"]<-"Rhogeessa.gracilis"
+names(mexicomammalstack) [names(mexicomammalstack) =="Baeodon.alleni"]<-"Rhogeessa.alleni"
+names(mexicomammalstack) [names(mexicomammalstack) =="Pteronotus.mesoamericanus"]<-"Pteronotus.parnellii"
+names(mexicomammalstack) [names(mexicomammalstack) =="Diaemus.youngi"]<-"Diaemus.youngii"
+names(mexicomammalstack) [names(mexicomammalstack) =="Gardnerycteris.crenulatum"]<-"Mimon.crenulatum"
+names(mexicomammalstack) [names(mexicomammalstack) =="Heterogeomys.lanius"]<-"Orthogeomys.lanius"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.alfaroii"]<-"Oryzomys.alfaroi"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.melanotis"]<-"Oryzomys.melanotis"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.rostratus"]<-"Oryzomys.rostratus"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.chapmani"]<-"Oryzomys.chapmani"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.rhabdops"]<-"Oryzomys.rhabdops"
+names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.saturatior"]<-"Oryzomys.saturatior"
+
 
 #Convert raster stack to community dataframe
-communitydata<- getValues(herbivore_dataset3)
+communitydata<- getValues(mexicomammalstack)
 #Replace NA with 0
 communitydata[is.na(communitydata)]<-0
 
@@ -213,9 +227,9 @@ phydata<-match.phylo.comm(phylogeny,communitydata)
 phydiv<-pd(phydata$comm,phydata$phy,include.root=T)
 
 #Rasterize this
-phydivraster<-raster(speciesrichness)
+phydivraster<-raster(SR_lcc)
 phydivraster<-setValues(phydivraster,phydiv$PD)
-phydivraster<-mask(phydivraster,speciesrichness,maskvalue=NA)
+phydivraster<-mask(phydivraster,SR_lcc,maskvalue=NA)
 
 levelplot(phydivraster,par.settings=YlOrRdTheme,margin=F)+
    layer(sp.polygons(bPolslaea))+
