@@ -1,8 +1,10 @@
 #Mexican mammals
 rm(list=ls())
 #install.packages("rgdal")
-#install.packages("sp")
-#install.packages("rasterVis")
+install.packages("sp")
+install.packages("rasterVis")
+install.packages("raster")
+
 
 require(raster)
 require(rasterVis)
@@ -111,12 +113,8 @@ levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
   layer(sp.polygons(mexico,lwd=0.5))
 
 writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
-summary(mexmam_sr_m)#1-121 species
+summary(mexmam_sr10km_m)#1-121 species
 
-mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
- levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
-   layer(sp.polygons(mexico,lwd=0.5))
- #mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
  
  
 
@@ -163,12 +161,13 @@ plot(ALLPA2, add=TRUE)
 # saving
 #writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 #Loading
-tiff_SR<-raster('MexicoMammalSpeciesRichness_10km.tif')
+#NO SE QUE PASÓ, NO JALÓ. CREO QUE SI REPROYECTÉ EL ARCHIVO CORRECTO EN LINEA 172. nel no jaló
+tiff_SR<-raster('mexicomammalstack_10km')
 plot(tiff_SR)
 
 #reprokecting SR raster
 #SR_lcc is the name of the SR raster file with the correct projection
-SR_lcc<-projectRaster(tiff_SR,crs = lcc)
+SR_lcc<-projectRaster(mexicomammalstack,crs = lcc)
 
 
 # #Phylogeny --------------------------------------------------------------
@@ -184,32 +183,34 @@ phylogeny$tip.label
 phylogeny$tip.label<-gsub('_','.',phylogeny$tip.label)
 
 #Do I have same list of sp. in spatial data and phylogeny?
-names(mexicomammalstack)[!names(mexicomammalstack) %in% phylogeny$tip.label]
-phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack)]
+names(mexicomammalstack_10km)[!names(mexicomammalstack_10km) %in% phylogeny$tip.label]
+phylogeny$tip.label[!phylogeny$tip.label %in% names(mexicomammalstack_10km)]
 
 #Match synonym names
 phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.bullatus34"] <- "Peromyscus.bullatus"
 phylogeny$tip.label[phylogeny$tip.label=="Peromyscus.melanurus11"]<-  "Peromyscus.melanurus"
 phylogeny$tip.label[phylogeny$tip.label=="Tamias.durangae"]<- "Neotamias.durangae"         
 phylogeny$tip.label[phylogeny$tip.label=="Tamias.bulleri"]<-"Neotamias.bulleri"
-names(mexicomammalstack) [names(mexicomammalstack) =="Cryptotis.mexicana"]<-"Cryptotis.mexicanus"
-names(mexicomammalstack) [names(mexicomammalstack) =="Cryptotis.obscura"]<-"Cryptotis.obscurus"
-names(mexicomammalstack) [names(mexicomammalstack) =="Baeodon.gracilis"]<-"Rhogeessa.gracilis"
-names(mexicomammalstack) [names(mexicomammalstack) =="Baeodon.alleni"]<-"Rhogeessa.alleni"
-names(mexicomammalstack) [names(mexicomammalstack) =="Pteronotus.mesoamericanus"]<-"Pteronotus.parnellii"
-names(mexicomammalstack) [names(mexicomammalstack) =="Diaemus.youngi"]<-"Diaemus.youngii"
-names(mexicomammalstack) [names(mexicomammalstack) =="Gardnerycteris.crenulatum"]<-"Mimon.crenulatum"
-names(mexicomammalstack) [names(mexicomammalstack) =="Heterogeomys.lanius"]<-"Orthogeomys.lanius"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.alfaroii"]<-"Oryzomys.alfaroi"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.melanotis"]<-"Oryzomys.melanotis"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.rostratus"]<-"Oryzomys.rostratus"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.chapmani"]<-"Oryzomys.chapmani"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.rhabdops"]<-"Oryzomys.rhabdops"
-names(mexicomammalstack) [names(mexicomammalstack) =="Handleyomys.saturatior"]<-"Oryzomys.saturatior"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Cryptotis.mexicana"]<-"Cryptotis.mexicanus"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Cryptotis.obscura"]<-"Cryptotis.obscurus"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Baeodon.gracilis"]<-"Rhogeessa.gracilis"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Baeodon.alleni"]<-"Rhogeessa.alleni"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Pteronotus.mesoamericanus"]<-"Pteronotus.parnellii"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Diaemus.youngi"]<-"Diaemus.youngii"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Gardnerycteris.crenulatum"]<-"Mimon.crenulatum"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Heterogeomys.lanius"]<-"Orthogeomys.lanius"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.alfaroii"]<-"Oryzomys.alfaroi"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.melanotis"]<-"Oryzomys.melanotis"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rostratus"]<-"Oryzomys.rostratus"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.chapmani"]<-"Oryzomys.chapmani"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rhabdops"]<-"Oryzomys.rhabdops"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.saturatior"]<-"Oryzomys.saturatior"
 
+#Reproject mexicomamal10kmk stack to lcc #WE'EW NOT DOIN' THIS UNTIL THE END 
+#mexicomammalstack_lcc<-projectRaster(mexicomammalstack_10km,SR_lcc,method = 'ngb',filename = mexicomammalstack_lcc)
 
 #Convert raster stack to community dataframe
-communitydata<- getValues(mexicomammalstack)
+communitydata<- getValues(mexicomammalstack_10km)
 #Replace NA with 0
 communitydata[is.na(communitydata)]<-0
 
