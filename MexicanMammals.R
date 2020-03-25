@@ -11,14 +11,6 @@ require(rgdal)
 require(sp)
 require(rasterVis)
 
-
-#Mexico outline
-mexico<-getData('GADM',country='MEX',level=0)
-mexico
-plot(mexico)
-
-mexalt<-getData('alt',country='MEX')
-
 #ICUN mammal data
 #mammal<-readOGR(dsn="/Users/alejandratomasini/Escritorio/R/SP_MX_488", layer="mml_mx", encoding="NULL", use_iconv="FALSE")
 #mammal
@@ -121,6 +113,14 @@ writeRaster(Clupus, file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMam
 Clupus<- projectRaster(Clupus,mexicomammalstack)#resample
 
 
+
+#Mexico outline
+mexico<-getData('GADM',country='MEX',level=0)
+mexico
+plot(mexico)
+
+mexalt<-getData('alt',country='MEX')
+
 #Read in raster files
 filelist<-list.files('MexicoMammalsRaster',full.names = T)
 filelist
@@ -139,17 +139,13 @@ plot(mexicoEA,add=T)
 mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
 mexmam_sr10km<-sum(mexicomammalstack_10km,na.rm = T)
 mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
-writeRaster(mexicomammalstack_10km, 'mexicomammalstack10FINAL.tif',format='GTiff',overwrite=T)
 
 levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
   layer(sp.polygons(mexico,lwd=0.5))
 
+writeRaster(mexicomammalstack_10km, 'mexicomammalstack10FINAL.grd',format='raster',overwrite=T)
 writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 summary(mexmam_sr10km_m)#1-121 species
-
-
-prueba1 <-mask(mexicomammalstack_10km, ALLPA)
-plot(prueba1)
 
 
 ####trying to fix mexicomammalstack_10km
@@ -411,7 +407,7 @@ srfrequency <- data.frame(freq(SR_lcc))
 
 #PA RASTER
 PA_R <- raster("~/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
-mmlstack<-raster("~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack10FINAL.tif")
+mmlstack<-raster("~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack_10km.gri")
 plot(PA_R)
 
 
