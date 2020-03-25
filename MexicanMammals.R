@@ -7,9 +7,9 @@ install.packages("raster")
 
 
 require(raster)
-require(rasterVis)
 require(rgdal)
 require(sp)
+require(rasterVis)
 
 
 #Mexico outline
@@ -57,7 +57,6 @@ mexalt<-getData('alt',country='MEX')
 # mexelevEA<-projectRaster(mexelev,crs=crsmex)
 # r1km<-raster(ext=extent(mexelevEA),res=1000,crs=crsmex)
 # 
-# 
 # #Individual species
 # speciesraststack<-stack(r1km,nlayers=length(levels(mexmamdropped$BINOMIAL)))
 # 
@@ -69,7 +68,6 @@ mexalt<-getData('alt',country='MEX')
 #      speciesraststack[[i]]<-rasterize(mex_mammalEA[mex_mammalEA$BINOMIAL==levels(mexmamdropped$BINOMIAL)[i],],r1km,field=1)}#Need to do by levels since some species have multiple polygons
 #  speciesraststack
 # 
-# 
 # #Mask to elevation
 # names(speciesraststack)<-levels(mexmamdropped$BINOMIAL)[1:i]
 # mexelevEA1km<-resample(mexelevEA,r1km)
@@ -78,36 +76,70 @@ mexalt<-getData('alt',country='MEX')
 # levelplot(speciesrasterstack[[1:4]])+
 # layer(sp.polygons(mexicoEA,lwd=0.5))
 # 
-# 
 # for(i in 1:length(levels(mexmamdropped$BINOMIAL))){
 # writeRaster(speciesraststack[[i]],filename=paste0('MexicoMammalsRaster/',names(speciesraststack)[i],'.tif'),format='GTiff')  }
 # 
 
+#mexmam_sr<-rasterize(mex_mammalEA,r1km,field='binomial',fun=function(x, ...) {length(unique(na.omit(x)))})#Need to do by levels since some species have multiple polygons
+#mexmam_sr_m<-mask(mexmam_sr,mexelev)
+
+#RASTERIZING AND SAVING RANGES OF MISSING SPECIES
+e_Ferox <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/EUMOPS_FEROX/E_ferox.shp", encoding=NULL, use_iconv=TRUE)
+e_ferox<-spTransform(e_Ferox, proj4string(mexicomammalstack)) #Tener todo en el mismo crs (lcc)
+e_FeroxR <- rasterize(e_ferox, mexicomammalstack, field="BINOMIAL", fun="count") #rasterizing
+plot(e_FeroxR) #Checking it
+writeRaster(e_FeroxR,file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Eumops.ferox.tif'),format='GTiff',overwrite=T) #save it
+
+p_merriami <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/Peromyscus merriami/P_merriami.shp", encoding=NULL, use_iconv=TRUE)
+p_merriami<-spTransform(p_merriami, proj4string(mexicomammalstack))
+p_merriamiR <- rasterize(p_merriami, mexicomammalstack, field="BINOMIAL", fun="count") 
+plot(p_merriamiR) 
+writeRaster(p_merriamiR,file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Peromyscus.merriami.tif'),format='GTiff',overwrite=T) #save it
+
+S_parvidens <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/STURNIDA PARVIDENS/Sturnida_parvidens.shp", encoding=NULL, use_iconv=TRUE)
+S_parvidens<-spTransform(S_parvidens, proj4string(mexicomammalstack))
+S_parvidensR <- rasterize(S_parvidens, mexicomammalstack, field="BINOMIAL", fun="count") 
+plot(S_parvidensR) 
+writeRaster(S_parvidensR,file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Sturnira.parvidens.tif'),format='GTiff',overwrite=T) #save it
+
+O_atricapillus <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/Otospermophilus.atricapillus/Otospermophilus.atricapillus.shp", encoding=NULL, use_iconv=TRUE)
+O_atricapillus<-spTransform(O_atricapillus, proj4string(mexicomammalstack))
+O_atricapillusR <- rasterize(O_atricapillus, mexicomammalstack, field="BINOMIAL", fun="count") 
+plot(O_atricapillusR) 
+writeRaster(O_atricapillusR,file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Otospermophilus.atricapillus.tif'),format='GTiff',overwrite=T) #save it
+
+
+#ADDING RASTER FILES FROM TANIA (BIOGEOGRAPHIC ATLAS PROJECT)
+bison <- raster("~/Mexican-mammal-phylogenetic-diversity/bisobis_f/w001001.adf") # -> class raster
+crs(bison)<- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
+writeRaster(bison, file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Bison.bison.tif'))
+bison<- projectRaster(bison,mexicomammalstack)#resample 
+
+Clupus <- raster("~/Mexican-mammal-phylogenetic-diversity/canlup_f/w001001.adf") # -> class raster
+crs(Clupus)<- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
+writeRaster(Clupus, file.path('~/Mexican-mammal-phylogenetic-diversity/MexicoMammalsRaster/Canis.lupus.tif'))
+Clupus<- projectRaster(Clupus,mexicomammalstack)#resample
+
+
 #Read in raster files
 filelist<-list.files('MexicoMammalsRaster',full.names = T)
 filelist
+
 #Stack up
 mexicomammalstack<-stack(filelist)
 mexicomammalstack
 
 plot(mexicomammalstack[[1]])
-plot(mexicomammalstack$Zygogeomys.trichopus)
+plot(mexicomammalstack$Canis.lupus)
 
 mexicoEA<-spTransform(mexico,crs(mexicomammalstack))
 plot(mexicoEA,add=T)
 
-
-plot(mexicomammalstack[[1]])
-plot(mexicomammalstack$Romerolagus.diazi)
-
-
 #Species richness
-#mexmam_sr<-rasterize(mex_mammalEA,r1km,field='binomial',fun=function(x, ...) {length(unique(na.omit(x)))})#Need to do by levels since some species have multiple polygons
-#mexmam_sr_m<-mask(mexmam_sr,mexelev)
-
 mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
 mexmam_sr10km<-sum(mexicomammalstack_10km,na.rm = T)
 mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
+writeRaster(mexicomammalstack_10km, 'mexicomammalstack10FINAL.tif',format='GTiff',overwrite=T)
 
 levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
   layer(sp.polygons(mexico,lwd=0.5))
@@ -115,11 +147,23 @@ levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
 writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 summary(mexmam_sr10km_m)#1-121 species
 
- 
+
+prueba1 <-mask(mexicomammalstack_10km, ALLPA)
+plot(prueba1)
+
+
+####trying to fix mexicomammalstack_10km
+writeRaster(mexicomammalstack_10km,'mexicomammalstack_10km',bylayer=T)
+#Then read it in from the file.
+mexicomammalstack_10km<-stack('~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack_10km.gri')
+
+
  
 
 
-#PA Mexico
+#Loading files --------------------------------------------------------------
+
+#PA
 protected_areas <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/AP_FED.shp", encoding=NULL, use_iconv=TRUE)
 plot(protected_areas) #Only federal
 PA_E_P <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/ANP_EST_PRIV/AP_EST.shp", encoding=NULL, use_iconv=TRUE)
@@ -132,6 +176,16 @@ plot(ALLPA) #This is all federal, private and statal Protected Areas
 FVT <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/FVT/FVT_new.shp", encoding=NULL, use_iconv=TRUE)
 plot(FVT)
 
+#División Política ###NO CARGA
+DivPol <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/division_política/destdv250k_2gw.shp", encoding=NULL, use_iconv=TRUE)
+plot(DivPol)
+DivPol_lcc <- spTransform(DivPol, lcc)
+
+#ZTM
+ZTM <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/ZTM/ztm0.shp", encoding=NULL, use_iconv=TRUE)
+plot(ZTM)
+
+
 
 #Reprojecting to Datum=ITRF 92. All AP, FVT and SR. proj=Lambert conformal conic
 #Not sure if lcc has correct Datum. 
@@ -143,9 +197,9 @@ FVT_lcc <- spTransform(FVT, lcc)
 
 
 
-#we were not sure how to reproject the raster 
+#we were not sure how to reproject the raster --> with project raster
 new2 <- spTransform(protected_areas, proj4string(mexicomammalstack_10km)) # protected areas with raster CRS
-FVT2 <- spTransform(FVT, proj4string(mexicomammalstack_10km))
+FVT2 <- spTransform(FVT_lcc, proj4string(mexicomammalstack_10km))
 ALLPA2 <- spTransform(ALLPA, proj4string(mexicomammalstack_10km))
 
 
@@ -161,13 +215,18 @@ plot(ALLPA2, add=TRUE)
 # saving
 #writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 #Loading
-#NO SE QUE PASÓ, NO JALÓ. CREO QUE SI REPROYECTÉ EL ARCHIVO CORRECTO EN LINEA 172. nel no jaló
 tiff_SR<-raster('mexicomammalstack_10km')
 plot(tiff_SR)
 
-#reprokecting SR raster
+
+#### rasterize(polygon,stack_of_other_species_ranges,field=”Species”,…)
+#Assuming you have many species in one polygon dataset. Separate lines for each species if they are separate. You can set the file name as you do this.
+
+
+#reprojecting SR raster
 #SR_lcc is the name of the SR raster file with the correct projection
 SR_lcc<-projectRaster(mexicomammalstack,crs = lcc)
+
 
 
 # #Phylogeny --------------------------------------------------------------
@@ -199,18 +258,16 @@ names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Pteronotus.mesoa
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Diaemus.youngi"]<-"Diaemus.youngii"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Gardnerycteris.crenulatum"]<-"Mimon.crenulatum"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Heterogeomys.lanius"]<-"Orthogeomys.lanius"
-names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.alfaroii"]<-"Oryzomys.alfaroi"
+names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.alfaroi"]<-"Oryzomys.alfaroi"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.melanotis"]<-"Oryzomys.melanotis"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rostratus"]<-"Oryzomys.rostratus"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.chapmani"]<-"Oryzomys.chapmani"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rhabdops"]<-"Oryzomys.rhabdops"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.saturatior"]<-"Oryzomys.saturatior"
 
-#Reproject mexicomamal10kmk stack to lcc #WE'EW NOT DOIN' THIS UNTIL THE END 
-#mexicomammalstack_lcc<-projectRaster(mexicomammalstack_10km,SR_lcc,method = 'ngb',filename = mexicomammalstack_lcc)
-
 #Convert raster stack to community dataframe
 communitydata<- getValues(mexicomammalstack_10km)
+
 #Replace NA with 0
 communitydata[is.na(communitydata)]<-0
 
@@ -220,7 +277,6 @@ phydata<-match.phylo.comm(phylogeny,communitydata)
 ###
 ##Check through the dropped species carefully and fix any that are errors.###
 ###Checked, No errors, extra species in phylogeny should be dropped.
-#
 ##Locate spatial data for those that are missing
 ###
 
@@ -228,13 +284,139 @@ phydata<-match.phylo.comm(phylogeny,communitydata)
 phydiv<-pd(phydata$comm,phydata$phy,include.root=T)
 
 #Rasterize this
-phydivraster<-raster(SR_lcc)
+phydivraster<-raster(mexmam_sr10km_m)
 phydivraster<-setValues(phydivraster,phydiv$PD)
-phydivraster<-mask(phydivraster,SR_lcc,maskvalue=NA)
+phydivraster<-mask(phydivraster,mexmam_sr10km_m,maskvalue=NA)
 
-levelplot(phydivraster,par.settings=YlOrRdTheme,margin=F)+
-   layer(sp.polygons(bPolslaea))+
-   layer(sp.polygons(arczones_laea,lty=2))
+levelplot(phydivraster,par.settings=YlOrRdTheme,margin=F, main='Mammal Phylogenetic Diversity',scales=list(draw=F))+
+   layer(sp.polygons(mexicoEA,lwd=0.5))
+#  layer(sp.polygons(bPolslaea))+
+#layer(sp.polygons(mexico,lty=2))
+
+   
+writeRaster(phydivraster,'MEX_MML_PD.tif',format='GTiff',overwrite=T)
+
+
+#Stack together - each as a proportion of the total species richness or phylogeney branch length
+diversitystack<-stack(mexmam_sr10km_m/nlayers(mexicomammalstack_10km),phydivraster/sum(phylogeny$edge.length))
+names(diversitystack)<-c('Species Richness','Phylogenetic Diversity')
+
+levelplot(diversitystack_lcc,par.settings=YlOrRdTheme,margin=F,main= "Diversity Measurements", scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))#+ #Mapa de México
+  #layer(sp.polygons(ALLPA_ToUse, lwd=0.5))+ #Todas las AP
+  layer(sp.polygons(DivPol_lcc, lwd=0.5)) #+ #División Política de México
+  # layer(sp.polygons(ZTM, lwd=0.5)) #ZTM
+
+ZTM_lcc <- project(ZTM, "+proj=lcc +lat_1=17.5 +lat_2=19.5 +lat_0=12 +lon_0=-102 +x_0=2500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+
+ALLPA_ToUse<-spTransform(ALLPA,crs(lcc))
+plot(ALLPA_ToUse,add=T)
+
+mexicoEA1<-spTransform(mexicoEA,crs(lcc))
+
+##REPROJECTING TO LCC EVERYTHING: SR & PD
+SR_lcc<-projectRaster(mexmam_sr10km_m,crs = lcc)
+PD_lcc<-projectRaster(phydivraster,crs = lcc)
+diversitystack_lcc<-projectRaster(diversitystack,crs = lcc)
+
+
+ ##########DIVERSITY INISDE AND OUTSIDE PA-------------------------------------------
+
+#SR in PA
+SRiPA<-mask(SR_lcc,ALLPA_ToUse) 
+levelplot(SRiPA)
+
+levelplot(SRiPA,par.settings=YlOrRdTheme,margin=F, main='Species Richness in Protected Areas',scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))+
+  layer(sp.polygons(ALLPA_ToUse,lwd=0.5))
+#BOXPLOT OF SRiPA 
+boxplot(SRiPA, y=NULL, maxpixels=100000, col='blue', xlab='InsidePA', ylab='SR')
+
+#SR out PA
+SRnotPA<-mask(SR_lcc,ALLPA_ToUse, inverse='T')
+levelplot(SRnotPA)
+levelplot(SRnotPA,par.settings=YlOrRdTheme,margin=F, main='Species Richness outside Protected Areas',scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))+
+  layer(sp.polygons(ALLPA_ToUse,lwd=0.5))
+#BOXPLOT OF SRnotPA 
+boxplot(SR_i_not, y=NULL, maxpixels=100000, col='blue', xlab='OutsidePA', ylab='SR')
+
+#violin boxplot
+SR_i_not <- stack(SRiPA, SRnotPA)
+names(SR_i_not)<-c('Protected areas','Unprotected areas')
+bwplot(SR_i_not, violin = TRUE, box.ratio = 0.5, par.settings = myTheme, ylab='Species Richness', main= 'Species Richness inside/outside PA')
+
+
+#PD in PA
+PDiPA<-mask(PD_lcc,ALLPA_ToUse)
+levelplot(PDiPA)
+levelplot(PDiPA,par.settings=YlOrRdTheme, margin=F,main='Phylogenetic Diversity in Protected Areas')+
+  layer(sp.polygons(ALLPA_ToUse,lwd=0.5))+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))
+
+#BOXPLOT OF PDiPA 
+boxplot(PDiPA, y=NULL, maxpixels=100000, col='RED', xlab='InsidePA', ylab='PD')
+
+#PD out PA
+PDnotPA<-mask(PD_lcc,ALLPA_ToUse, inverse='T')
+levelplot(PDnotPA)
+levelplot(PDnotPA,par.settings=YlOrRdTheme,margin=F, main='Phylogenetic Diversity outside Protected Areas',scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))+
+  layer(sp.polygons(ALLPA_ToUse,lwd=0.5))
+#BOXPLOT OF PDoutPA 
+boxplot(PD_i_not, y=NULL, maxpixels=100000, col='blue', xlab='OutsidePA', ylab='SR')
+
+#violin boxplot
+PD_i_not <- stack(PDiPA, PDnotPA)
+names(PD_i_not)<-c('Protected areas','Unprotected areas')
+bwplot(PD_i_not, violin = TRUE, box.ratio = 0.5, par.settings = myTheme, ylab='Pylogenetic diversity', main= 'Phylogenetic Diversity inside/outside PA')
+
+
+
+
+
+
+
+####-----------------------------Basic Raster Descriptive stats-------------####
+###QUESESTO????
+
+#SR
+cellStats(SRiPA, stat='mean', na.rm=TRUE, asSample=TRUE)
+cellStats(SRiPA, stat='max', na.rm=TRUE, asSample=TRUE)
+cellStats(SRiPA, stat='min', na.rm=TRUE, asSample=TRUE)
+
+#PD
+cellStats(PDiPA, stat='mean', na.rm=TRUE, asSample=TRUE)
+cellStats(PDiPA, stat='max', na.rm=TRUE, asSample=TRUE)
+cellStats(PDiPA, stat='min', na.rm=TRUE, asSample=TRUE)
+
+
+#### to obtain number of cells, subtract NA cell count from total sum of count
+
+srfrequency <- data.frame(freq(SR_lcc))
+
+###TO DO
+######To find out which non-protected cells have the greatest phylogenetic distance from-
+######all protected areas within Mexico, you could make a new dataset where all of Mexico’s-
+######protected areas are merged into a single community, and look at the phylosor similarity-
+######between that community and every other cell (assuming that there are several  species-
+######which are not present in any protected areas).
+
+#HOW MANY SP. DO I HAVE INSIDE AND HOW MANY OUTSIDE PA?
+# SP. REDUNDANCY.... how many times a sp./branch tip is protected in the total set of PA
+#B-DIVERSITY (PHYLOSOR). turnover between PA-nonPA
+#COMAPRE DIFFERENT TYPES OF DIVERSITY BETWEEN DIFFERENT TYPES OF PA (FEDERA, ESTATAL, PRIVADA)
+#HOW MUCH OF THE UNPROTECTED AREA WILL BE AHOTSPOT-Most valuable areas to add to current PA scheme
+#RANK PA BASED ON PD - must important PA for protecting mammal PD
+
+#PA RASTER
+PA_R <- raster("~/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
+mmlstack<-raster("~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack10FINAL.tif")
+plot(PA_R)
+
+
+extract(mexicomammalstack_10km, ALLPA2, fun= NULL)
+
 
 
 
