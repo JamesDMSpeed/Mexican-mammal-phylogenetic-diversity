@@ -128,6 +128,7 @@ filelist
 #Stack up
 mexicomammalstack<-stack(filelist)
 mexicomammalstack
+plot(mexicomammalstack)
 
 plot(mexicomammalstack[[1]])
 plot(mexicomammalstack$Canis.lupus)
@@ -135,26 +136,31 @@ plot(mexicomammalstack$Canis.lupus)
 mexicoEA<-spTransform(mexico,crs(mexicomammalstack))
 plot(mexicoEA,add=T)
 
+mexicomammalstackcrop<-crop(mexicomammalstack,mexicoEA)
+mexicomammalstackcrop[is.na(mexicomammalstackcrop)]<-0
+########## KRISTIANS TEST AREA###############
+
+
+
+########## END OF KRISTIANS TEST AREA###############
+
 #Species richness
 mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
+writeRaster(mexicomammalstack_10km, 'mexicomammalstack10km.grd',format='raster',overwrite=T)#save file 2 use
+mexicomammalstack_10km<- brick('mexicomammalstack10km.grd') # load file to use
+writeRaster(mexicomammalstack_10km, filename='mexicomammalstack_10km/mexicomammalstack_10km.grd',format='raster',bylayer=TRUE) # save files to github
+#filelist_test<-list.files('mexicomammalstack_10km',full.names = T,pattern="*.grd")
+#test<-brick(stack(filelist_test))
+
 mexmam_sr10km<-sum(mexicomammalstack_10km,na.rm = T)
 mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
 
 levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
   layer(sp.polygons(mexico,lwd=0.5))
 
-writeRaster(mexicomammalstack_10km, 'mexicomammalstack10FINAL.grd',format='raster',overwrite=T)
 writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
 summary(mexmam_sr10km_m)#1-121 species
 
-
-####trying to fix mexicomammalstack_10km
-writeRaster(mexicomammalstack_10km,'mexicomammalstack_10km',bylayer=T)
-#Then read it in from the file.
-mexicomammalstack_10km<-stack('~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack_10km.gri')
-
-
- 
 
 
 #Loading files --------------------------------------------------------------
@@ -164,9 +170,10 @@ protected_areas <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/AP_FED.s
 plot(protected_areas) #Only federal
 PA_E_P <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/ANP_EST_PRIV/AP_EST.shp", encoding=NULL, use_iconv=TRUE)
 plot(PA_E_P) #Estatales y privadas  
-ALLPA <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/UNION_ALL_AP/ALL_AP_MX.shp", encoding=NULL, use_iconv=TRUE)
+ALLPA <- readOGR(dsn="~/NEW/Mexican-mammal-phylogenetic-diversity/UNION_ALL_AP/ALL_AP_MX.shp", encoding=NULL, use_iconv=TRUE)
 plot(ALLPA) #This is all federal, private and statal Protected Areas
 
+ALLPA3<-spTransform(ALLPA,crs(mexicomammalstack)) # protected areas with crs of mexicomammalstack
 
 #FVT
 FVT <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/FVT/FVT_new.shp", encoding=NULL, use_iconv=TRUE)
@@ -206,13 +213,7 @@ plot(FVT2, add=TRUE)
 plot(ALLPA2, add=TRUE)
 
 
-#For saving and loading rasters
 
-# saving
-#writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
-#Loading
-tiff_SR<-raster('mexicomammalstack_10km')
-plot(tiff_SR)
 
 
 #### rasterize(polygon,stack_of_other_species_ranges,field=”Species”,…)
@@ -308,12 +309,14 @@ ZTM_lcc <- project(ZTM, "+proj=lcc +lat_1=17.5 +lat_2=19.5 +lat_0=12 +lon_0=-102
 ALLPA_ToUse<-spTransform(ALLPA,crs(lcc))
 plot(ALLPA_ToUse,add=T)
 
-mexicoEA1<-spTransform(mexicoEA,crs(lcc))
+
 
 ##REPROJECTING TO LCC EVERYTHING: SR & PD
 SR_lcc<-projectRaster(mexmam_sr10km_m,crs = lcc)
 PD_lcc<-projectRaster(phydivraster,crs = lcc)
 diversitystack_lcc<-projectRaster(diversitystack,crs = lcc)
+
+
 
 
  ##########DIVERSITY INISDE AND OUTSIDE PA-------------------------------------------
@@ -406,13 +409,19 @@ srfrequency <- data.frame(freq(SR_lcc))
 #RANK PA BASED ON PD - must important PA for protecting mammal PD
 
 #PA RASTER
-PA_R <- raster("~/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
-mmlstack<-raster("~/Mexican-mammal-phylogenetic-diversity/mexicomammalstack_10km.gri")
+PA_R <- raster("~/NEW/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
 plot(PA_R)
+PA_R<- projectRaster(PA_R,mexicomammalstack_10km)
+
+PA_R[getValues(PA_R)>0]<-1 # set "buffer" values to 1
+sum(getValues(PA_R))
+PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) # I cant find the PA column.... just the names of the sp and at then sth clle "PA_MX_raster"
+
+PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
 
 
-extract(mexicomammalstack_10km, ALLPA2, fun= NULL)
 
+dataPAnMmlStack<-getValues(PAnMmlStack)
 
 
 

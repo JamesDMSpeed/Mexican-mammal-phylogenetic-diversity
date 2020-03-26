@@ -1,0 +1,26 @@
+[general]
+creator=R package 'raster'
+created=2020-03-26 22:02:32
+[georeference]
+nrows=218
+ncols=333
+xmin=-1341037.8979656
+ymin=-1083341.26411314
+xmax=1988962.1020344
+ymax=1096658.73588686
+projection=+proj=aea +lat_1=14.5 +lat_2=32.5 +lat_0=24 +lon_0=-105 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs
+[data]
+datatype=FLT4S
+byteorder=little
+nbands=1
+bandorder=BIL
+categorical=FALSE
+minvalue=1
+maxvalue=1
+nodatavalue=-3.4e+38
+[legend]
+legendtype=
+values=
+color=
+[description]
+layername=Rheomys.mexicanus
