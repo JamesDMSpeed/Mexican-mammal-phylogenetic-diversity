@@ -141,7 +141,6 @@ mexicomammalstackcrop[is.na(mexicomammalstackcrop)]<-0
 ########## KRISTIANS TEST AREA###############
 
 
-
 ########## END OF KRISTIANS TEST AREA###############
 
 #Species richness
@@ -418,6 +417,41 @@ sum(getValues(PA_R))
 PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) # I cant find the PA column.... just the names of the sp and at then sth clle "PA_MX_raster"
 
 PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
+
+
+PAnMmlStackcolSum<-colSums(PAnMmlStack[PAnMmlStack$PA_MX_Raster > 0])
+non_protected_species <-PAnMmlStackcolSum[PAnMmlStackcolSum==0] 
+View(non_protected_species)
+
+names(non_protected_species) 
+
+
+test<-brick('mexicomammalstack10km.grd')
+
+col=hcl.colors(length(names(non_protected_species)))
+
+
+test<-mexicomammalstack_10km
+test[is.na(test)]<-0
+
+
+i=1
+add=FALSE
+for(name in names(non_protected_species)) {
+  print(i)
+  #test[test[[name]]>0] <- i
+  test[[name]][!is.na(test[[name]])]<-i
+  plot(test[[name]],col.region=col[i],add=add)
+  
+  if (i == 1){
+    #testplot<-stack(test[[name]])
+    add=TRUE
+  }#else{
+    #testplot<-stack(test[[name]],testplot)}
+  i=i+1
+   
+}
+
 
 
 
