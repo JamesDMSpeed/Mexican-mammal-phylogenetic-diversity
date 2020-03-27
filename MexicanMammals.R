@@ -399,32 +399,33 @@ srfrequency <- data.frame(freq(SR_lcc))
 ######protected areas are merged into a single community, and look at the phylosor similarity-
 ######between that community and every other cell (assuming that there are several  species-
 ######which are not present in any protected areas).
-
-#HOW MANY SP. DO I HAVE INSIDE AND HOW MANY OUTSIDE PA?
-# SP. REDUNDANCY.... how many times a sp./branch tip is protected in the total set of PA
 #B-DIVERSITY (PHYLOSOR). turnover between PA-nonPA
 #COMAPRE DIFFERENT TYPES OF DIVERSITY BETWEEN DIFFERENT TYPES OF PA (FEDERA, ESTATAL, PRIVADA)
 #HOW MUCH OF THE UNPROTECTED AREA WILL BE AHOTSPOT-Most valuable areas to add to current PA scheme
 #RANK PA BASED ON PD - must important PA for protecting mammal PD
 
+
+#WHICH SP. ARE INSIDE AND WHICH OUTSIDE PA?
 #PA RASTER
 PA_R <- raster("~/NEW/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
 plot(PA_R)
 PA_R<- projectRaster(PA_R,mexicomammalstack_10km)
 
-PA_R[getValues(PA_R)>0]<-1 # set "buffer" values to 1
+PA_R[getValues(PA_R)>0]<-1 # set "buffer" values to 1. ASK JAMES ABOUT THIS
 sum(getValues(PA_R))
-PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) # I cant find the PA column.... just the names of the sp and at then sth clle "PA_MX_raster"
+PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) 
 
 PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
-
 
 PAnMmlStackcolSum<-colSums(PAnMmlStack[PAnMmlStack$PA_MX_Raster > 0])
 non_protected_species <-PAnMmlStackcolSum[PAnMmlStackcolSum==0] 
 View(non_protected_species)
 
-names(non_protected_species) 
+names(non_protected_species) #Species that are not inside any PA cell. 43
 
+
+
+########## KRISTIANS TEST AREA###############
 
 test<-brick('mexicomammalstack10km.grd')
 
@@ -452,10 +453,10 @@ for(name in names(non_protected_species)) {
    
 }
 
-
-
-
 dataPAnMmlStack<-getValues(PAnMmlStack)
 
+########## END OF KRISTIANS TEST AREA###############
 
 
+
+# SP. REDUNDANCY: how many times a sp./branch tip is protected in the total set of PA
