@@ -408,25 +408,44 @@ srfrequency <- data.frame(freq(SR_lcc))
 #WHICH SP. ARE INSIDE AND WHICH OUTSIDE PA?
 #PA RASTER
 PA_R <- raster("~/NEW/Mexican-mammal-phylogenetic-diversity/PA_MX_Raster.tif")
-plot(PA_R)
+levelplot(PA_R)+
+  layer(sp.polygons(mexicoEA1,lwd=0.5))+
+  layer(sp.polygons(ALLPA3, lwd=0.5))
+
 PA_R<- projectRaster(PA_R,mexicomammalstack_10km)
 
-PA_R[getValues(PA_R)>0]<-1 # set "buffer" values to 1. ASK JAMES ABOUT THIS
+PA_R[getValues(PA_R)>0.5]<-1 # set "buffer" values to 1. 
 sum(getValues(PA_R))
 PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) 
+plot(PAnMmlStack[[8]])
+
+mmlsALL_PA <- getValues(PAnMmlStack)
 
 PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
 
+#colSums(PAnMmlStack[getValues(PAnMmlStack)[,'PA_MX_Raster']>0])
 PAnMmlStackcolSum<-colSums(PAnMmlStack[PAnMmlStack$PA_MX_Raster > 0])
 non_protected_species <-PAnMmlStackcolSum[PAnMmlStackcolSum==0] 
 View(non_protected_species)
 
 names(non_protected_species) #Species that are not inside any PA cell. 43
 
+# Preparing data for beta-diversity
+communitydataPA <- data.frame(rbind(PAnMmlStackcolSum)) # make copy
+communitydataPA$PA_MX_Raster <- NULL # remove PA_MX_Raster column
+communitydataPA[communitydataPA > 0] <-1
 
+non_communitydataPA<-data.frame(PAnMmlStack[PAnMmlStack$PA_MX_Raster == 0])
+non_communitydataPA$PA_MX_Raster <- NULL  # remove PA_MX_Raster column
+non_communitydataPA<-non_communitydataPA[rowSums(non_communitydataPA[, -1] > 0) != 0, ] # removing rows with only zeros
 
+combined_communitydataPA <- rbind(non_communitydataPA, communitydataPA)
 
+#B-DIVERSITY 
+install.packages("vegan")
+require("vegan")
 
+Bdiversity <- vegdist(combined_communitydataPA, method = "bray", binary="TRUE")
 
 
 # SP. REDUNDANCY: how many times a sp./branch tip is protected in the total set of PA
