@@ -425,37 +425,7 @@ names(non_protected_species) #Species that are not inside any PA cell. 43
 
 
 
-########## KRISTIANS TEST AREA###############
 
-test<-brick('mexicomammalstack10km.grd')
-
-col=hcl.colors(length(names(non_protected_species)))
-
-
-test<-mexicomammalstack_10km
-test[is.na(test)]<-0
-
-
-i=1
-add=FALSE
-for(name in names(non_protected_species)) {
-  print(i)
-  #test[test[[name]]>0] <- i
-  test[[name]][!is.na(test[[name]])]<-i
-  plot(test[[name]],col.region=col[i],add=add)
-  
-  if (i == 1){
-    #testplot<-stack(test[[name]])
-    add=TRUE
-  }#else{
-    #testplot<-stack(test[[name]],testplot)}
-  i=i+1
-   
-}
-
-dataPAnMmlStack<-getValues(PAnMmlStack)
-
-########## END OF KRISTIANS TEST AREA###############
 
 
 
