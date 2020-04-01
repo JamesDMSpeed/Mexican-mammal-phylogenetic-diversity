@@ -135,13 +135,10 @@ plot(mexicomammalstack$Canis.lupus)
 
 mexicoEA<-spTransform(mexico,crs(mexicomammalstack))
 plot(mexicoEA,add=T)
+writeOGR(mexicoEA,"mexicoEA",driver="ESRI Shapefile")
+mexicoEA = readOGR(dsn="mexicoEA", layer="mexicoEA")
+crs(mexicoEA) <- '+proj=aea +lat_1=14.5 +lat_2=32.5 +lat_0=24 +lon_0=-105 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
 
-mexicomammalstackcrop<-crop(mexicomammalstack,mexicoEA)
-mexicomammalstackcrop[is.na(mexicomammalstackcrop)]<-0
-########## KRISTIANS TEST AREA###############
-
-
-########## END OF KRISTIANS TEST AREA###############
 
 #Species richness
 mexicomammalstack_10km<-aggregate(mexicomammalstack,fact=10,fun="modal")
@@ -157,7 +154,7 @@ mexmam_sr10km_m<-mask(mexmam_sr10km,mexicoEA)
 levelplot(mexmam_sr10km_m,margin=F,main='Mammal Species Richness')+
   layer(sp.polygons(mexico,lwd=0.5))
 
-writeRaster(mexmam_sr10km_m,'MexicoMammalSpeciesRichness_10km.tif',format='GTiff',overwrite=T)
+writeRaster(mexmam_sr10km_m,'mexmam_sr10km_m.grd',format='raster',overwrite=T)
 summary(mexmam_sr10km_m)#1-121 species
 
 
@@ -172,7 +169,7 @@ plot(PA_E_P) #Estatales y privadas
 ALLPA <- readOGR(dsn="~/NEW/Mexican-mammal-phylogenetic-diversity/UNION_ALL_AP/ALL_AP_MX.shp", encoding=NULL, use_iconv=TRUE)
 plot(ALLPA) #This is all federal, private and statal Protected Areas
 
-ALLPA3<-spTransform(ALLPA,crs(mexicomammalstack)) # protected areas with crs of mexicomammalstack
+ALLPA3<-spTransform(ALLPA,crs(mexicomammalstack_10km)) # protected areas with crs of mexicomammalstack
 
 #FVT
 FVT <- readOGR(dsn="~/Mexican-mammal-phylogenetic-diversity/FVT/FVT_new.shp", encoding=NULL, use_iconv=TRUE)
@@ -412,40 +409,84 @@ levelplot(PA_R)+
   layer(sp.polygons(mexicoEA1,lwd=0.5))+
   layer(sp.polygons(ALLPA3, lwd=0.5))
 
-PA_R<- projectRaster(PA_R,mexicomammalstack_10km)
+mexmam_10km_m<-mask(mexicomammalstack_10km, mexicoEA)
+PA_R<- projectRaster(PA_R, mexmam_10km_m)
 
-PA_R[getValues(PA_R)>0.5]<-1 # set "buffer" values to 1. 
-sum(getValues(PA_R))
-PAnMmlStack<- stack(mexicomammalstack_10km, PA_R) 
+
+PA_R[getValues(PA_R)>0.5]<-1 # set "buffer" values to 1.
+PA_R[getValues(PA_R)<=0.5]<-0
+
+PAnMmlStack<- stack(mexmam_10km_m, PA_R) 
 plot(PAnMmlStack[[8]])
 
-mmlsALL_PA <- getValues(PAnMmlStack)
+levelplot(PA_R,par.settings=YlOrRdTheme, margin=F)+
+levelplot(PAnMmlStack$Lepus.flavigularis,par.settings=YlOrRdTheme, margin=F)+
+  layer(sp.polygons(ALLPA3,lwd=0.5))+
+  layer(sp.polygons(mexicoEA,lwd=0.5))
 
-PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
+
+#mmlsALL_PA <- getValues(PAnMmlStack)
+#mmlsALL_PA <- data.frame(mmlsALL_PA)
+
+#PAnMmlStack[is.na(PAnMmlStack)]<-0 # swap NA with 0 :)
 
 #colSums(PAnMmlStack[getValues(PAnMmlStack)[,'PA_MX_Raster']>0])
-PAnMmlStackcolSum<-colSums(PAnMmlStack[PAnMmlStack$PA_MX_Raster > 0])
+
+PAnMmlStackcolSum<-colSums(PAnMmlStack[PAnMmlStack$PA_MX_Raster > 0],na.rm="TRUE")
 non_protected_species <-PAnMmlStackcolSum[PAnMmlStackcolSum==0] 
 View(non_protected_species)
 
-names(non_protected_species) #Species that are not inside any PA cell. 43
+names(non_protected_species) #Species that are not inside any PA cell. 55?
+
+plot(mexicoEA)
+for (name in names(non_protected_species)){
+  image(mexmam_10km_m[[name]],add=TRUE)
+}
+
+levelplot(mexicomammalstack_10km$Odocoileus.hemionus,par.settings=YlOrRdTheme,margin=F,scales=list(draw=F))+
+    layer(sp.polygons(mexicoEA))
+
+levelplot(mexmam_10km_m,par.settings=YlOrRdTheme,margin=F,scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA))
 
 # Preparing data for beta-diversity
 communitydataPA <- data.frame(rbind(PAnMmlStackcolSum)) # make copy
 communitydataPA$PA_MX_Raster <- NULL # remove PA_MX_Raster column
 communitydataPA[communitydataPA > 0] <-1
 
-non_communitydataPA<-data.frame(PAnMmlStack[PAnMmlStack$PA_MX_Raster == 0])
+non_communitydataPA<-data.frame(PAnMmlStack[PAnMmlStack$PA_MX_Raster != 1])
 non_communitydataPA$PA_MX_Raster <- NULL  # remove PA_MX_Raster column
-non_communitydataPA<-non_communitydataPA[rowSums(non_communitydataPA[, -1] > 0) != 0, ] # removing rows with only zeros
+#non_communitydataPA<-non_communitydataPA[rowSums(non_communitydataPA[, -1] > 0) != 0, ] # removing rows with only zeros
 
 combined_communitydataPA <- rbind(non_communitydataPA, communitydataPA)
+
 
 #B-DIVERSITY 
 install.packages("vegan")
 require("vegan")
 
-Bdiversity <- vegdist(combined_communitydataPA, method = "bray", binary="TRUE")
+Bdiversity <- vegdist(combined_communitydataPA, method = "bray", upper=TRUE, na.rm=TRUE)
+BdiversityMTX <- as.matrix(Bdiversity)
+save(BdiversityMTX, file="BdiversityMTX")
+#load("BdiversityMTX")
 
+#Rasterize this
+Bdivraster<-raster(PAnMmlStack)
+Bdivraster<-setValues(Bdivraster,BdiversityMTX[,ncol(BdiversityMTX)])
+Bdivraster<-mask(Bdivraster,communitydata_non_PA,maskvalue=NA)
+
+levelplot(Bdivraster,par.settings=YlOrRdTheme,margin=F, main='Mammal Beta Diversity',scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA,lwd=0.5))
+
+levelplot(test$PA_MX_Raster,par.settings=YlOrRdTheme,margin=F, main='Mammal Beta Diversity',scales=list(draw=F))+
+  layer(sp.polygons(mexicoEA,lwd=0.1))
+  #layer(sp.polygons(ALLPA3,lwd=0.5))
+
+
+Bdivraster<-PA_R
+Bdivraster[Bdivraster$PA_MX_Raster != 1] <- BdiversityMTX[1:(ncol(BdiversityMTX)-1),ncol(BdiversityMTX)] # replace cell values outside protected area with beta diversity values for the corresponding cell. 
+Bdivraster[Bdivraster$PA_MX_Raster == 1] <- 0 # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
+
+Bdivraster[Bdivraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
 
 # SP. REDUNDANCY: how many times a sp./branch tip is protected in the total set of PA
