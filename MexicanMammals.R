@@ -161,7 +161,7 @@ levelplot(mexmam_sr10km_m, margin=F,main='Mammal Species Richness')+
 
 #--- Loading shape files --------------------------------------------------------------
 #PA
-protected_areas <- readOGR(dsn="AP_FED.shp", encoding=NULL, use_iconv=TRUE)
+protected_areas <- readOGR(dsn="AP_FED/AP_FED.shp", encoding=NULL, use_iconv=TRUE)
 plot(protected_areas) #Only federal
 PA_E_P <- readOGR(dsn="ANP_EST_PRIV/AP_EST.shp", encoding=NULL, use_iconv=TRUE)
 plot(PA_E_P) #Estatales y privadas  
@@ -192,7 +192,7 @@ ALLPA_lcc <- spTransform(ALLPA, lcc)
 FVT_lcc <- spTransform(FVT, lcc)
 
 
-#--- Phylogeny --------------------------------------------------------------
+#--- Phylogeny ----
 
 #Read in phylogeny
 phylogeny<-read.tree('TREE_R_BN.nwk')
@@ -253,6 +253,10 @@ phydivraster<-mask(phydivraster, mexmam_sr10km_m, maskvalue=NA)
 
 levelplot(phydivraster, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Diversity',scales=list(draw=F))+
    layer(sp.polygons(mexico_aea,lwd=0.5))
+
+levelplot(phydivraster, margin=F,main='Mammal Phylogenetic Diversity', xlab=if(isLonLat(phydivraster)) 'Longitude' else NULL,
+          ylab=if(isLonLat(phydivraster)) 'Latitude' else NULL,)+
+  layer(sp.polygons(mexico_aea,lwd=0.5))
 #  layer(sp.polygons(bPolslaea))+
 #layer(sp.polygons(mexico,lty=2))
 
@@ -270,6 +274,11 @@ levelplot(diversitystack_lcc,par.settings=YlOrRdTheme, margin=F,main= "Diversity
   #layer(sp.polygons(ALLPA_lcc, lwd=0.5))+ #Todas las AP
   layer(sp.polygons(DivPol_lcc, lwd=0.5)) #+ #División Política de México
   # layer(sp.polygons(ZTM, lwd=0.5)) #ZTM
+  
+  
+  
+  
+ 
 
 ZTM_lcc <- project(ZTM, crs(lcc))
 
@@ -303,18 +312,27 @@ levelplot(SRnotPA, par.settings=YlOrRdTheme, margin=F, main='Species Richness ou
 boxplot(SR_i_not, y=NULL, maxpixels=100000, col='blue', xlab='OutsidePA', ylab='SR')
 
 #violin boxplot
+myTheme <- bwTheme(
+  box.rectangle = list(col = 'black', fill = 'orange'),
+  plot.polygon = list(col = 'red'),
+  plot.symbol = list(col = 'gray', cex = 0.8, alpha = 0.1)
+)
+
 SR_i_not <- stack(SRiPA, SRnotPA)
 names(SR_i_not)<-c('Protected areas','Unprotected areas')
 bwplot(SR_i_not, violin = TRUE, box.ratio = 0.5, par.settings=myTheme, ylab='Species Richness', main= 'Species Richness inside/outside PA')
 
 
 #PD in PA
-PDiPA<-mask(PD_lcc, ALLPA_lcc)
+PDiPA<-mask(PD_lcc, PA_lcc)
+
+PA_lcc <- spTransform(protected_areas, lcc)
+
 
 levelplot(PDiPA)
 
 levelplot(PDiPA, par.settings=YlOrRdTheme, margin=F,main='Phylogenetic Diversity in Protected Areas')+
-  layer(sp.polygons(ALLPA_lcc,lwd=0.5))+
+  layer(sp.polygons(PA_lcc,lwd=0.5))+
   layer(sp.polygons(mexico_lcc,lwd=0.5))
 #BOXPLOT OF PDiPA 
 boxplot(PDiPA, y=NULL, maxpixels=100000, col='RED', xlab='InsidePA', ylab='PD')
@@ -424,7 +442,7 @@ BdiversityMTX <- as.matrix(Bdiversity)
 BdiversityVEC <- BdiversityMTX[1:(ncol(BdiversityMTX)-1), ncol(BdiversityMTX)]
 #save(BdiversityMTX, file="BdiversityMTX.RData")
 #load("BdiversityMTX.RData")
-save(BdiversityVEC, file="BdiversityVEC.RData")
+#save(BdiversityVEC, file="BdiversityVEC.RData")
 load("BdiversityVEC.RData") # <-- LOAD THIS!
 
 #Rasterize this
@@ -447,8 +465,49 @@ phydataB<-match.phylo.comm(phylogeny, communitydataB)
 BPD<-phylosor(phydataB$comm,phydataB$phy)
 
 
+#--- Ranking of PA based on PD ----
+# for this we will only use federal protected areas
+
+PA_names <- as.character(protected_areas@data$NOMBRE)
+plot(protected_areas[protected_areas@data$NOMBRE == PA_names[47],])
+
+#PA_name <- PA_names[2]
+#PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
+#PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
+#PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
+#PA_single_sr
+#plot(mexico_aea)+
+#plot(PA_single_aea, add=T)
+
+# make a table with federal protected areas and their maximum PD value
+PA_PD_max_all <- list()
+i <- 1
+for(PA_name in PA_names) {
+  #print(PA_name)
+  PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
+  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
+  PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
+  
+  # from pholygeny
+  phydivraster_PA<-raster(mexmam_sr10km_m)
+  phydivraster_PA<-setValues(phydivraster_PA, phydiv$PD)
+  phydivraster_PA<-mask(phydivraster_PA, PA_single_aea)
+  
+  PA_PD_max_all[[i]] <- maxValue(phydivraster_PA)
+  i <- i + 1
+}
+
+col <- c('Federal Protected Areas', 'Maximum Value of the Phylogenetic Diversity')
+PA_PD_table <- data.frame(PA_names, unlist(PA_PD_max_all))
+colnames(PA_PD_table) <- col
+PA_PD_table_ranked <- PA_PD_table[order(PA_PD_table$`Maximum Value of the Phylogenetic Diversity`, decreasing = T),]
+write.csv(PA_PD_table_ranked, file = "Ranking of federal protected areas.csv")
+sum(is.na(PA_PD_table)) # number of federal PA that are too small to get PD from. 59
 
 
+levelplot(phydivraster_PA, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Diversity',scales=list(draw=F))+
+  layer(sp.polygons(PA_single_aea, lwd=0.5))+
+  layer(sp.polygons(mexico_aea, lwd=0.5))
 
 
 ###TO DO
