@@ -6,6 +6,7 @@ install.packages("rasterVis")
 install.packages("raster")
 install.packages("picante")
 install.packages("vegan")
+install.packages("betapart")
 
 require(raster)
 require(rgdal)
@@ -13,6 +14,18 @@ require(sp)
 require(rasterVis)
 require(picante)
 require("vegan")
+require(betapart)
+#--- LOADING OF SAVED FILES TO USE ----
+mexicomammalstack_10km <- brick(stack(list.files('mexicomammalstack_10km', full.names=T, pattern="*.grd")))
+
+mexico_aea = readOGR(dsn="mexico_aea", layer="mexico_aea") # <-- LOAD THIS!
+crs(mexico_aea) <- '+proj=aea +lat_1=14.5 +lat_2=32.5 +lat_0=24 +lon_0=-105 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+
+ALLPA <- readOGR(dsn="UNION_ALL_AP/ALL_AP_MX.shp", encoding=NULL, use_iconv=TRUE)
+
+PA_R <- raster("PA_MX_Raster.tif") 
+
+load("BdiversityVEC.RData") 
 
 #--- Attempt to calculate SR ----
 #ICUN mammal data
@@ -195,7 +208,7 @@ FVT_lcc <- spTransform(FVT, lcc)
 #--- Phylogeny ----
 
 #Read in phylogeny
-phylogeny<-read.tree('TREE_R_BN.nwk')
+phylogeny<-read.tree('TREE_R_BN.nwk') # <-- LOAD THIS
 plot(phylogeny)
 phylogeny$tip.label
 
@@ -225,6 +238,8 @@ names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rost
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.chapmani"]<-"Oryzomys.chapmani"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.rhabdops"]<-"Oryzomys.rhabdops"
 names(mexicomammalstack_10km) [names(mexicomammalstack_10km) =="Handleyomys.saturatior"]<-"Oryzomys.saturatior"
+
+#write.tree(phylogeny, file="phylogeny.nwk")
 
 #Convert raster stack to community dataframe
 communitydata<- getValues(mexicomammalstack_10km)
@@ -259,6 +274,8 @@ levelplot(phydivraster, margin=F,main='Mammal Phylogenetic Diversity', xlab=if(i
   layer(sp.polygons(mexico_aea,lwd=0.5))
 #  layer(sp.polygons(bPolslaea))+
 #layer(sp.polygons(mexico,lty=2))
+
+
 
 
 #--- Stack together SR and PD ----
@@ -356,15 +373,27 @@ bwplot(PD_i_not, violin = TRUE, box.ratio = 0.5, par.settings = myTheme, ylab='P
 
 #--- Basic Raster Descriptive stats ----
 
+
 #SR
+cellStats(mexmam_sr10km_m, stat='mean', na.rm=TRUE, asSample=TRUE)
+cellStats(mexmam_sr10km_m, stat='max', na.rm=TRUE, asSample=TRUE)
+cellStats(mexmam_sr10km_m, stat='min', na.rm=TRUE, asSample=TRUE)
+#SRiPA
 cellStats(SRiPA, stat='mean', na.rm=TRUE, asSample=TRUE)
 cellStats(SRiPA, stat='max', na.rm=TRUE, asSample=TRUE)
 cellStats(SRiPA, stat='min', na.rm=TRUE, asSample=TRUE)
 
+
 #PD
+cellStats(phydivraster, stat='mean', na.rm=TRUE, asSample=TRUE)
+cellStats(phydivraster, stat='max', na.rm=TRUE, asSample=TRUE)
+cellStats(phydivraster, stat='min', na.rm=TRUE, asSample=TRUE)
+#PDiPA
 cellStats(PDiPA, stat='mean', na.rm=TRUE, asSample=TRUE)
 cellStats(PDiPA, stat='max', na.rm=TRUE, asSample=TRUE)
 cellStats(PDiPA, stat='min', na.rm=TRUE, asSample=TRUE)
+
+
 
 
 #### to obtain number of cells, subtract NA cell count from total sum of count
@@ -375,7 +404,7 @@ srfrequency <- data.frame(freq(SR_lcc))
 #--- BETA DIVERSITY ANALYSIS ----
 #WHICH SP. ARE INSIDE AND WHICH OUTSIDE PA?
 #PA RASTER
-PA_R <- raster("PA_MX_Raster.tif")
+PA_R <- raster("PA_MX_Raster.tif") # <-- LOAD THIS!
 
 levelplot(PA_R, par.settings=YlOrRdTheme, margin=F)+
   layer(sp.polygons(mexico_aea, lwd=0.5))+
@@ -457,16 +486,42 @@ levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mam
 
 
 #--- PHYLOGENETIC BETA DIVERSITY ----
+phylogeny <- read.tree("phylogeny.nwk")
+
 communitydataB<-combined_communitydataPA
 communitydataB[is.na(communitydataB)]<-0
 phydataB<-match.phylo.comm(phylogeny, communitydataB)
 
 # GIVES AN ERROR, CANNOT ALLOCATE VECTOR OF SIZE 500 GB...
-BPD<-phylosor(phydataB$comm,phydataB$phy)
+#PBD<-phylosor(phydataB$comm,phydataB$phy)
 
+#PBD<-phylo.beta.multi(phydataB$comm,phydataB$phy, index.family="sorensen")
+
+# the following for-loop calculates only the phylogenetic beta-diversity between the cells outside the protected area with the protected area community cell.
+PBD <- list()
+for (i in 1:(nrow(phydataB$comm)-1)){ 
+  combi_comdata_cell <- phydataB$comm[c(i, nrow(phydataB$comm)),]
+  PBD[[i]]<-phylosor(combi_comdata_cell, phydataB$phy)
+}  
+
+PBD <- unlist(PBD)
+
+#Rasterize this
+PBDraster<-PA_R
+PBDraster[PBDraster$PA_MX_Raster != 1] <- PBD # replace cell values outside protected area with beta diversity values for the corresponding cell. 
+PBDraster[PBDraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
+
+#PBDraster[PBDraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
+
+#save(PBDraster, file="PBDraster.RData")
+load("PBDraster.RData") # <-- LOAD THIS!
+
+levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Beta-Diversity',scales=list(draw=F))+
+  layer(sp.polygons(mexico_aea,lwd=0.5))
 
 #--- Ranking of PA based on PD ----
-# for this we will only use federal protected areas
+##RANK PA BASED ON PD - must important PA for protecting mammal PD
+##for this we will only use federal protected areas
 
 PA_names <- as.character(protected_areas@data$NOMBRE)
 plot(protected_areas[protected_areas@data$NOMBRE == PA_names[47],])
@@ -513,5 +568,4 @@ levelplot(phydivraster_PA, par.settings=YlOrRdTheme, margin=F, main='Mammal Phyl
 ###TO DO
 #COMAPRE DIFFERENT TYPES OF DIVERSITY BETWEEN DIFFERENT TYPES OF PA (FEDERA, ESTATAL, PRIVADA)
 #HOW MUCH OF THE UNPROTECTED AREA WILL BE AHOTSPOT-Most valuable areas to add to current PA scheme
-#RANK PA BASED ON PD - must important PA for protecting mammal PD
 # SP. REDUNDANCY: how many times a sp./branch tip is protected in the total set of PA
