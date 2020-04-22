@@ -17,6 +17,7 @@ require("vegan")
 require(betapart)
 #--- LOADING OF SAVED FILES TO USE ----
 mexicomammalstack_10km <- brick(stack(list.files('mexicomammalstack_10km', full.names=T, pattern="*.grd")))
+mexicomammalstack_10km<- brick('mexicomammalstack10km.grd') # load file to use
 
 mexico_aea = readOGR(dsn="mexico_aea", layer="mexico_aea") # <-- LOAD THIS!
 crs(mexico_aea) <- '+proj=aea +lat_1=14.5 +lat_2=32.5 +lat_0=24 +lon_0=-105 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
@@ -257,7 +258,7 @@ phydata <- match.phylo.comm(phylogeny, communitydata)
 ###
 
 #Calculate phylogenetic diversity
-phydiv<-pd(phydata$comm,phydata$phy,include.root=T)
+phydiv<-pd(phydata$comm, phydata$phy, include.root=T)
 
 #Rasterize this
 phydivraster<-raster(mexmam_sr10km_m)
@@ -485,6 +486,7 @@ levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mam
   layer(sp.polygons(mexico_aea,lwd=0.5))
 
 
+
 #--- PHYLOGENETIC BETA DIVERSITY ----
 phylogeny <- read.tree("phylogeny.nwk")
 
@@ -500,7 +502,7 @@ phydataB<-match.phylo.comm(phylogeny, communitydataB)
 # the following for-loop calculates only the phylogenetic beta-diversity between the cells outside the protected area with the protected area community cell.
 PBD <- list()
 for (i in 1:(nrow(phydataB$comm)-1)){ 
-  combi_comdata_cell <- phydataB$comm[c(i, nrow(phydataB$comm)),]
+  combi_comdata_cell <- phydataB$comm[c(i, nrow(phydataB$comm)),] #
   PBD[[i]]<-phylosor(combi_comdata_cell, phydataB$phy)
 }  
 
@@ -511,13 +513,104 @@ PBDraster<-PA_R
 PBDraster[PBDraster$PA_MX_Raster != 1] <- PBD # replace cell values outside protected area with beta diversity values for the corresponding cell. 
 PBDraster[PBDraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
 
-#PBDraster[PBDraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
-
 #save(PBDraster, file="PBDraster.RData")
 load("PBDraster.RData") # <-- LOAD THIS!
 
 levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Beta-Diversity',scales=list(draw=F))+
   layer(sp.polygons(mexico_aea,lwd=0.5))
+
+#--- pairplot of PD and PBD ----
+PD_stack <- stack(phydivraster, PBDraster)
+pairs(PD_stack, hist=TRUE, cor=TRUE, use="pairwise.complete.obs")
+
+#--- PBD PA ----
+PA_names <- as.character(protected_areas@data$NOMBRE)
+
+
+PA_name <- PA_names[2]
+
+i <- 1
+for(PA_name in PA_names) {
+  print(i)
+  PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
+  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
+  PA_single_mms <- mask(PAnMmlStack, PA_single_aea)
+  PA_single_mms_col_sum <- colSums(getValues(PA_single_mms), na.rm="TRUE")
+  PA_comm_single <- data.frame(rbind(PA_single_mms_col_sum ))
+  PA_comm_single$PA_MX_Raster <- NULL # remove PA_MX_Raster column
+  PA_comm_single[PA_comm_single > 0] <-1
+  rownames(PA_comm_single) <- PA_name
+  
+  if (i == 1){
+    PA_comm_all <- PA_comm_single
+  } 
+  else{
+    PA_comm_all<-rbind(PA_comm_all, PA_comm_single) 
+    }
+  i <- i + 1
+}
+
+
+
+PA_comm_all <- list()
+i <- 1
+for(PA_name in PA_names) {
+  #print(PA_name)
+  PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
+  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
+  PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
+  
+  # from pholygeny
+  phydivraster_PA<-raster(mexmam_sr10km_m)
+  phydivraster_PA<-setValues(phydivraster_PA, phydiv$PD)
+  phydivraster_PA<-mask(phydivraster_PA, PA_single_aea)
+  
+  PA_PD_max_all[[i]] <- maxValue(phydivraster_PA)
+  i <- i + 1
+}
+
+
+
+
+phylogeny <- read.tree("phylogeny.nwk")
+
+communitydata<- getValues(mexicomammalstack_10km)
+#Replace NA with 0
+communitydata[is.na(communitydata)]<-0
+
+#Use picante to trim community and phylogenetic data
+phydata <- match.phylo.comm(phylogeny, communitydata)
+
+# GIVES AN ERROR, CANNOT ALLOCATE VECTOR OF SIZE 500 GB...
+#PBD<-phylosor(phydataB$comm,phydataB$phy)
+
+#PBD<-phylo.beta.multi(phydataB$comm,phydataB$phy, index.family="sorensen")
+
+# the following for-loop calculates only the phylogenetic beta-diversity between the cells outside the protected area with the protected area community cell.
+PBD <- list()
+for (i in 1:(nrow(phydataB$comm)-1)){ 
+  combi_comdata_cell <- phydataB$comm[c(i, nrow(phydataB$comm)),] #
+  PBD[[i]]<-phylosor(combi_comdata_cell, phydataB$phy)
+}  
+
+PBD <- unlist(PBD)
+
+#Rasterize this
+PBDraster<-PA_R
+PBDraster[PBDraster$PA_MX_Raster != 1] <- PBD # replace cell values outside protected area with beta diversity values for the corresponding cell. 
+PBDraster[PBDraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
+
+
+
+
+
+
+
+
+PA_single_mms10km
+plot(mexico_aea)+
+plot(PA_single_aea, add=T)
+mexicomammalstack_10km
 
 #--- Ranking of PA based on PD ----
 ##RANK PA BASED ON PD - must important PA for protecting mammal PD
@@ -526,13 +619,13 @@ levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mamm
 PA_names <- as.character(protected_areas@data$NOMBRE)
 plot(protected_areas[protected_areas@data$NOMBRE == PA_names[47],])
 
-#PA_name <- PA_names[2]
-#PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
-#PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
-#PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
-#PA_single_sr
-#plot(mexico_aea)+
-#plot(PA_single_aea, add=T)
+PA_name <- PA_names[47]
+PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
+PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
+PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
+PA_single_sr
+plot(mexico_aea)+
+plot(PA_single_aea, add=T)
 
 # make a table with federal protected areas and their maximum PD value
 PA_PD_max_all <- list()
