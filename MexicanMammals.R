@@ -477,12 +477,12 @@ load("BdiversityVEC.RData") # <-- LOAD THIS!
 
 #Rasterize this
 Bdivraster<-PA_R
-Bdivraster[Bdivraster$PA_MX_Raster != 1] <- BdiversityVEC # replace cell values outside protected area with beta diversity values for the corresponding cell. 
+Bdivraster[Bdivraster$PA_MX_Raster != 1] <- log(BdiversityVEC) # replace cell values outside protected area with the log-transferred beta diversity values for the corresponding cell.  
 Bdivraster[Bdivraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
 
-Bdivraster[Bdivraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
+#Bdivraster[Bdivraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
 
-levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mammal Beta-Diversity',scales=list(draw=F))+
+levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mammal Beta-Diversity', scales=list(draw=F), sub='with log-scale')+
   layer(sp.polygons(mexico_aea,lwd=0.5))
 
 
