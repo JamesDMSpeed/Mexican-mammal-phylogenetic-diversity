@@ -7,6 +7,7 @@ install.packages("raster")
 install.packages("picante")
 install.packages("vegan")
 install.packages("betapart")
+install.packages("stats")
 
 require(raster)
 require(rgdal)
@@ -15,6 +16,7 @@ require(rasterVis)
 require(picante)
 require("vegan")
 require(betapart)
+require(stats)
 #--- LOADING OF SAVED FILES TO USE ----
 mexicomammalstack_10km <- brick(stack(list.files('mexicomammalstack_10km', full.names=T, pattern="*.grd")))
 mexicomammalstack_10km<- brick('mexicomammalstack10km.grd') # load file to use
@@ -522,10 +524,9 @@ levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mamm
 #--- pairplot of PD and PBD ----
 PD_stack <- stack(phydivraster, PBDraster)
 pairs(PD_stack, hist=TRUE, cor=TRUE, use="pairwise.complete.obs")
-
+# it is linear. the correlation is 1.0....
 #--- PBD PA ----
 PA_names <- as.character(protected_areas@data$NOMBRE)
-
 
 PA_name <- PA_names[2]
 
@@ -551,66 +552,48 @@ for(PA_name in PA_names) {
 }
 
 
+#save(PA_comm_all, file="PA_comm_all.RData")
+load("PA_comm_all.RData") # <-- LOAD THIS!
 
-PA_comm_all <- list()
-i <- 1
-for(PA_name in PA_names) {
-  #print(PA_name)
-  PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
-  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km))
-  PA_single_sr <- mask(mexmam_sr10km, PA_single_aea)
-  
-  # from pholygeny
-  phydivraster_PA<-raster(mexmam_sr10km_m)
-  phydivraster_PA<-setValues(phydivraster_PA, phydiv$PD)
-  phydivraster_PA<-mask(phydivraster_PA, PA_single_aea)
-  
-  PA_PD_max_all[[i]] <- maxValue(phydivraster_PA)
-  i <- i + 1
-}
-
-
-
+PA_comm_all<-PA_comm_all[,colSums(PA_comm_all!=0)> 0] # removes unprotected species
 
 phylogeny <- read.tree("phylogeny.nwk")
 
-communitydata<- getValues(mexicomammalstack_10km)
-#Replace NA with 0
-communitydata[is.na(communitydata)]<-0
-
 #Use picante to trim community and phylogenetic data
-phydata <- match.phylo.comm(phylogeny, communitydata)
+phydataB <- match.phylo.comm(phylogeny, PA_comm_all)
 
-# GIVES AN ERROR, CANNOT ALLOCATE VECTOR OF SIZE 500 GB...
-#PBD<-phylosor(phydataB$comm,phydataB$phy)
+PBD<-phylosor(phydataB$comm,phydataB$phy)
+PBDMTX<-as.matrix(PBD)
+PBD_df<-as.data.frame(PBDMTX)
+PBD_df<-PBD_df[, colSums(PBD_df != 0, na.rm = TRUE) > 0]
+PBD_df<-PBD_df[rowSums(PBD_df != 0, na.rm = TRUE) > 0,]
+heatmap(as.matrix(PBD_df),Colv = NA, Rowv = NA, scale="column")
+
+hc<-hclust(dist(as.matrix(PBD_df)), method = "complete")
+plot(hc)
+plot(hc, hang = -1, cex = 0.6)
+
+hcd <- as.dendrogram(hc)
+plot(hcd, type = "rectangle", ylab = "Height")
+
+plot(hcd, xlim = c(1, 20), ylim = c(1,8))
+
+# Define nodePar
+nodePar <- list(lab.cex = 0.6, pch = c(NA, 19), 
+                cex = 0.7, col = "blue")
+# Horizontal plot
+plot(hcd,  xlab = "Height",
+     nodePar = nodePar, horiz = TRUE)
+
+install.packages("ggdendro")
+library("ggplot2")
+library("ggdendro")
+# Visualization using the default theme named theme_dendro()
+ggdendrogram(hc)
+# Rotate the plot and remove default theme
+ggdendrogram(hc, rotate = TRUE, theme_dendro = FALSE)
 
 #PBD<-phylo.beta.multi(phydataB$comm,phydataB$phy, index.family="sorensen")
-
-# the following for-loop calculates only the phylogenetic beta-diversity between the cells outside the protected area with the protected area community cell.
-PBD <- list()
-for (i in 1:(nrow(phydataB$comm)-1)){ 
-  combi_comdata_cell <- phydataB$comm[c(i, nrow(phydataB$comm)),] #
-  PBD[[i]]<-phylosor(combi_comdata_cell, phydataB$phy)
-}  
-
-PBD <- unlist(PBD)
-
-#Rasterize this
-PBDraster<-PA_R
-PBDraster[PBDraster$PA_MX_Raster != 1] <- PBD # replace cell values outside protected area with beta diversity values for the corresponding cell. 
-PBDraster[PBDraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
-
-
-
-
-
-
-
-
-PA_single_mms10km
-plot(mexico_aea)+
-plot(PA_single_aea, add=T)
-mexicomammalstack_10km
 
 #--- Ranking of PA based on PD ----
 ##RANK PA BASED ON PD - must important PA for protecting mammal PD
