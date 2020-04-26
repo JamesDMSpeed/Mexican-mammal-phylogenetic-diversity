@@ -629,7 +629,7 @@ for(PA_name in PA_names) {
 }
 
 
-#save(PA_comm_all, file="PA_comm_all.RData")
+save(PA_comm_all, file="PA_comm_all.RData")
 load("PA_comm_all.RData") # <-- LOAD THIS!
 
 PA_comm_all<-PA_comm_all[,colSums(PA_comm_all!=0)> 0] # removes unprotected species
@@ -639,12 +639,22 @@ phylogeny <- read.tree("phylogeny.nwk")
 #Use picante to trim community and phylogenetic data
 phydataPAB <- match.phylo.comm(phylogeny, PA_comm_all)
 
-PBD<-phyl(phydataPAB$comm,phydataPAB$phy)
-PBDMTX_1<-as.matrix(PBD)
+PBD_2<-phylo.beta.pair(phydataPAB$comm, phydataPAB$phy, index.family = "sorensen")
+PBDMTX_1<-as.matrix(PBD_2$phylo.beta.sor)
 PBD_df<-as.data.frame(PBDMTX_1)
-PBD_df<-PBD_df[, colSums(PBD_df != 0) > 0]
-PBD_df<-PBD_df[rowSums(PBD_df != 0, na.rm = TRUE) > 0,]
+#PBD_df<-PBD_df[, colSums(PBD_df != 0,na.rm = TRUE) > 0]
+#PBD_df<-PBD_df[rowSums(PBD_df != 0, na.rm = TRUE) > 0,]
+PBD_df<-PBD_df[is.na(rowSums(PBD_df))==F,is.na(colSums(PBD_df))==F]
 heatmap(as.matrix(PBD_df),Colv = NA, Rowv = NA, scale="column")
+
+rownames(PBD_df[is.na(rowSums(PBD_df))==T,is.na(colSums(PBD_df))==T])
+
+for(PA_name in PA_names) {
+  print(i)
+  PA_single <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
+  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km_m))
+  PA_single_sr <- mask(mexmam_sr10km_m, PA_single_aea)
+  
 
 # hierarchical clustering
 hc<-hclust(as.dist(as.matrix(PBD_df)), method = "ward.D")
@@ -735,30 +745,48 @@ gap_stat <- clusGap(as.matrix(df), FUN = kmeans, nstart = 25,
 fviz_gap_stat(gap_stat)
 
 # Compute k-means clustering with k = 5
+
+name_lable <- cbind(rownames(PBD_df), 1:nrow(PBD_df))
+write.csv(name_lable, file = "RESULTS/name lables of PA for cluster plot.csv")
+
+df<-as.matrix(PBD_df)
+rownames(df)<- 1:nrow(df)
+df <- as.dist(df)
 set.seed(123)
-final <- kmeans(df, 5, nstart = 25)
+final <- kmeans(df, 6, nstart = 25)
 print(final)
 
 fviz_cluster(final, data = df)
 
 PA_cluster <- as.matrix(final$cluster)
+rownames(PA_cluster)<-name_lable[,1]
+#test <- raster(mexicomammalstack_10km)
 
-test <- raster(mexicomammalstack_10km)
-
-PA_name <- protected_areas@data$NOMBRE[47]
+PA_name <- PAs_aea@data$NOMBRE[47]
 i=1
 for (PA_name in rownames(PA_cluster)){
-  PA_single <- protected_areas[protected_areas@data$NOMBRE == PA_name,]
-  PA_single_aea <- spTransform(PA_single, crs(mexico_aea))
-  PA_single_mms <- mask(PA_R, PA_single_aea)
+  PA_single_aea <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
+  PA_single_mms <- mask(PAs_R, PA_single_aea)
   PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name,][[1]]
+  print(PA_cluster[PA_name,][[1]])
   names(PA_single_mms)<-PA_name
-  if(i ==1){test<-PA_single_mms}else{test <- merge(test, PA_single_mms)}
+  if(i ==1){P_sim_PA<-PA_single_mms}else{P_sim_PA <- merge(P_sim_PA, PA_single_mms)}
   i = i+1
 }
 
-levelplot(test, par.settings=YlOrRdTheme, margin=F, main='Phylogenetic Similarity between PA ',scales=list(draw=F))+
-  latticeExtra::layer(sp.polygons(mexico_aea,lwd=0.5))
+P_sim_PA[P_sim_PA==0] <- NA # set non-ground cells to NA
+levelplot(P_sim_PA, par.settings=YlOrRdTheme, margin=F, main=list('Phylogenetic Similarity between PA', cex=2), scales=list(draw=F))+
+  latticeExtra::layer(sp.polygons(mexico_aea,lwd=0.5))+
+  latticeExtra::layer(sp.polygons(PAs_aea,lwd=0.5))
+
+
+PA_cluster <- as.data.frame(cbind(rownames(PA_cluster), PA_cluster))
+col <- c( 'Federal Protected Areas','Cluster number')
+colnames(PA_cluster) <- col
+PA_cluster_ranked <- PA_cluster[order(PA_cluster$`Cluster number`),]
+write.csv(PA_cluster_ranked, file = "RESULTS/cluster of federal protected areas.csv")
+
+
 #--- Ranking of PA based on PD ----
 ##RANK PA BASED ON PD - must important PA for protecting mammal PD
 ##for this we will only use federal protected areas
