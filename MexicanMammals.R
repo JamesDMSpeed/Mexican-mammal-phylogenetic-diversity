@@ -8,6 +8,7 @@ install.packages("picante")
 install.packages("vegan")
 install.packages("betapart")
 install.packages("stats")
+install.packages("NbClust")
 
 require(raster)
 require(rgdal)
@@ -17,6 +18,18 @@ require(picante)
 require("vegan")
 require(betapart)
 require(stats)
+require(NbClust)
+
+detach("package:stats", unload=T)
+detach("package:betapart", unload=T)
+detach("package:vegan", unload=T)
+detach("package:picante", unload=T)
+detach("package:rasterVis", unload=T)
+detach("package:sp", unload=T)
+detach("package:rgdal", unload=T)
+detach("package:raster", unload=T)
+
+
 #--- LOADING OF SAVED FILES TO USE ----
 mexicomammalstack_10km <- brick(stack(list.files('mexicomammalstack_10km', full.names=T, pattern="*.grd")))
 mexicomammalstack_10km<- brick('mexicomammalstack10km.grd') # load file to use
@@ -200,9 +213,23 @@ DivPol <- readOGR(dsn="division_política/destdv250k_2gw.shp", encoding=NULL, us
 plot(DivPol)
 
 #ZTM
-ZTM <- readOGR(dsn="ZTM/ztm0.shp", encoding=NULL, use_iconv=TRUE)
+ZTM<- readOGR(dsn="Provincias2002/ZTM/ztm0.shp", encoding=NULL, use_iconv=TRUE)
+crs(ZTM)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 plot(ZTM)
+ZTM_aea<-spTransform(ZTM, aea)
+NEART<- readOGR(dsn="Provincias2002/neartica.shp", encoding=NULL, use_iconv=TRUE)
+crs(NEART)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 ")
+NEART_aea<-spTransform(NEART, aea)
+plot(NEART_aea,add=T)
+NEO<- readOGR(dsn="Provincias2002/neo0.shp", encoding=NULL, use_iconv=TRUE)
+plot(NEO)
+crs(NEO)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+NEO_aea<-spTransform(NEO, aea)
+plot(NEO_aea)
 
+"+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+"+proj=longlat +ellps=GRS80 +no_defs "
+#ZTM0.shp, neartica.shp´, neo0.shp
 
 #--- Reprojecting to Datum=ITRF 92. All AP, FVT and SR. proj=Lambert conformal conic ----
 lcc <- CRS("+proj=lcc +lat_1=17.5 +lat_2=19.5 +lat_0=12 +lon_0=-102 +x_0=2500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
@@ -278,7 +305,7 @@ phydivraster<-mask(phydivraster, mexmam_sr10km_m, maskvalue=NA)
 #writeRaster(phydivraster,'MEX_MML_PD.tif',format='GTiff',overwrite=T)
 
 levelplot(phydivraster, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Diversity',scales=list(draw=F))+
-   layer(sp.polygons(mexico_aea,lwd=0.5))
+  layer(sp.polygons(mexico_aea,lwd=0.5))
 
 levelplot(phydivraster, margin=F,main='Mammal Phylogenetic Diversity', xlab=if(isLonLat(phydivraster)) 'Longitude' else NULL,
           ylab=if(isLonLat(phydivraster)) 'Latitude' else NULL,)+
@@ -379,8 +406,6 @@ cellStats(SRiPA, stat='min', na.rm=TRUE, asSample=TRUE)
 PD_mean<-cellStats(phydivraster, stat='mean', na.rm=TRUE, asSample=TRUE)
 PD_max<-cellStats(phydivraster, stat='max', na.rm=TRUE, asSample=TRUE)
 PD_min<-cellStats(phydivraster, stat='min', na.rm=TRUE, asSample=TRUE)
-
-
 #PDiPA
 cellStats(PDiPA, stat='mean', na.rm=TRUE, asSample=TRUE)
 cellStats(PDiPA, stat='max', na.rm=TRUE, asSample=TRUE)
@@ -397,15 +422,6 @@ srfrequency <- data.frame(freq(SR_lcc))
 #--- BETA DIVERSITY ANALYSIS ----
 #WHICH SP. ARE INSIDE AND WHICH OUTSIDE PA?
 #PA RASTER
-#test<-mask(mexmam_sr10km, mexico_aea,updatevalue=1)
-#test<-mask(test, PAs_agg, updatevalue=0)
-#test[test > 0] <- 1
-#test<-mask(test, mexico_aea)
-#plot(test)
-#levelplot(mexmam_sr10km_m, par.settings=YlOrRdTheme, margin=F)+
-  #  latticeExtra::layer(sp.polygons(mexico_aea, lwd=0.5))+
-  #latticeExtra::layer(sp.polygons(PAs_aea, lwd=0.5))
-
 #mexmam_50km<- aggregate(mexmam_10km_m, fact=5, fun="modal")
 
 mexmam_10km_m<-mask(mexicomammalstack_10km, mexico_aea)
@@ -416,27 +432,10 @@ PAs_R <- mask(sum(mexmam_10km_m, na.rm = T), PAs_agg, updatevalue=0)
 PAs_R[PAs_R > 0] <- 1
 names(PAs_R)<-'PA_MX_Raster'
 plot(PAs_aea)
+
 levelplot(PAs_R, par.settings=YlOrRdTheme, margin=F)+
   latticeExtra::layer(sp.polygons(mexico_aea, lwd=0.5))+
   latticeExtra::layer(sp.polygons(PAs_aea, lwd=0.5))
-
-####SAVE PAs_R with the 10km resolution to re-run BetaDiverdity
-
-#PA_R <- raster("PA_MX_Raster.tif") # <-- LOAD THIS!
-#detach("package:factoextra", unload=TRUE)
-#detach("ggrepel", unload=TRUE)
-
-#detach("package:ggplot2", unload=TRUE)
-#levelplot(PA_R, par.settings=YlOrRdTheme, margin=F)+
-#  latticeExtra::layer(sp.polygons(mexico_aea, lwd=0.5))+
-#  latticeExtra::layer(sp.polygons(ALLPA_aea, lwd=0.5))
-
-
-#PA_R <- projectRaster(PA_R, mexmam_10km_m, method="ngb")
-
-# use when method is bilinear in projectRaster for setting threshold
-#PA_R[getValues(PA_R)>0.5]<-1 # set "buffer" values to 1.
-#PA_R[getValues(PA_R)<=0.5]<-0
 
 # stacking
 
@@ -444,7 +443,7 @@ PAnMmlStack <- stack(mexmam_10km_m, PAs_R)
 plot(PAnMmlStack[[8]])
 
 levelplot(mexman_50km, par.settings=YlOrRdTheme, margin=F)+
-#levelplot(PAnMmlStack$Lepus.flavigularis,par.settings=YlOrRdTheme, margin=F)+
+  #levelplot(PAnMmlStack$Lepus.flavigularis,par.settings=YlOrRdTheme, margin=F)+
   layer(sp.polygons(ALLPA_aea, lwd=0.5))+
   layer(sp.polygons(mexico_aea, lwd=0.5))
 
@@ -465,8 +464,8 @@ for (name in names(non_protected_species)){
 }
 
 levelplot(mexicomammalstack_10km$Peromyscus.melanurus, par.settings=YlOrRdTheme, margin=F, scales=list(draw=F))+
-    layer(sp.polygons(mexico_aea, lwd=0.5))+
-    layer(sp.polygons(ALLPA_aea, lwd=0.5))
+  layer(sp.polygons(mexico_aea, lwd=0.5))+
+  layer(sp.polygons(ALLPA_aea, lwd=0.5))
 
 
 #--- Preparing data for beta-diversity ----
@@ -511,15 +510,12 @@ load("BD_pair.RData") # <-- LOAD THIS!
 
 #Rasterize this
 Bdivraster<-PAs_R
-Bdivraster[Bdivraster$PA_MX_Raster != 1] <- BD_pair#log(BdiversityVEC) # replace cell values outside protected area with the log-transferred beta diversity values for the corresponding cell.  
+Bdivraster[Bdivraster$PA_MX_Raster != 1] <- BD_pair# # replace cell values outside protected area with the beta diversity values for the corresponding cell.  
 Bdivraster[Bdivraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
-
-#Bdivraster[Bdivraster$PA_MX_Raster > 0.1] <- 0 # set all cell values over a given threshold to zero for analysis of areas with low beta diversity 
 
 levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main=list(label='Mammal Beta-Diversity',side=1,line=0.5, cex=2), scales=list(draw=F))+
   layer(sp.polygons(mexico_aea,lwd=0.5))+
   layer(sp.polygons(PAs_aea,lwa=0.5))
-
 
 
 #--- PHYLOGENETIC BETA DIVERSITY ----
@@ -574,11 +570,6 @@ levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mamm
   layer(sp.polygons(mexico_aea,lwd=0.5))
 
 #--- pairplot of PD and PBD ----
-#communitydata_10km<- getValues(mexman_50km)
-#communitydata_10km[is.na(communitydata_50km)]<-0
-#phydata_50km <- match.phylo.comm(phylogeny, communitydata_50km)
-#PD<-pd(phydata_50km$comm, phydata_50km$phy, include.root=T)
-
 PDraster<-phydivraster
 names(PDraster)<-"PD"
 names(PBDraster)<-"PBD"
@@ -624,7 +615,7 @@ for(PA_name in PA_names) {
   } 
   else{
     PA_comm_all<-rbind(PA_comm_all, PA_comm_single) 
-    }
+  }
   i <- i + 1
 }
 
@@ -632,7 +623,7 @@ for(PA_name in PA_names) {
 save(PA_comm_all, file="PA_comm_all.RData")
 load("PA_comm_all.RData") # <-- LOAD THIS!
 
-PA_comm_all<-PA_comm_all[,colSums(PA_comm_all!=0)> 0] # removes unprotected species
+PA_comm_all<-PA_comm_all[,colSums(PA_comm_all!=0)> 0] # removes columns of unprotected species
 
 phylogeny <- read.tree("phylogeny.nwk")
 
@@ -640,150 +631,60 @@ phylogeny <- read.tree("phylogeny.nwk")
 phydataPAB <- match.phylo.comm(phylogeny, PA_comm_all)
 
 PBD_2<-phylo.beta.pair(phydataPAB$comm, phydataPAB$phy, index.family = "sorensen")
+
 PBDMTX_1<-as.matrix(PBD_2$phylo.beta.sor)
+save(PBDMTX_1, file="PBDMTXv4.RData")
+load("PBDMTXv4.RData")
 PBD_df<-as.data.frame(PBDMTX_1)
-#PBD_df<-PBD_df[, colSums(PBD_df != 0,na.rm = TRUE) > 0]
-#PBD_df<-PBD_df[rowSums(PBD_df != 0, na.rm = TRUE) > 0,]
 PBD_df<-PBD_df[is.na(rowSums(PBD_df))==F,is.na(colSums(PBD_df))==F]
 heatmap(as.matrix(PBD_df),Colv = NA, Rowv = NA, scale="column")
 
-rownames(PBD_df[is.na(rowSums(PBD_df))==T,is.na(colSums(PBD_df))==T])
-
-for(PA_name in PA_names) {
-  print(i)
-  PA_single <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
-  PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km_m))
-  PA_single_sr <- mask(mexmam_sr10km_m, PA_single_aea)
-  
+#name_lable <- cbind(rownames(PBD_df), 1:nrow(PBD_df))
+#write.csv(name_lable, file = "RESULTS/name lables of PA for cluster plot.csv")
 
 # hierarchical clustering
-hc<-hclust(as.dist(as.matrix(PBD_df)), method = "ward.D")
-plot(hc, hang = -1, cex = 0.6)
+df<-as.dist(as.matrix(PBD_df))
+hc<-hclust(df, method = "ward.D")
 
-hcd <- as.dendrogram(hc)
-plot(hcd, type = "rectangle", ylab = "Height")
+# optimal number of clusters
+optclust<-NbClust(df,method='ward.D', index='cindex',min.nc=2,max.nc=10)#3
+optclust
 
-plot(hcd, xlim = c(1, 100), ylim = c(0,1))
+PA_cluster<-cutree(hc,k=3)
 
-# Define nodePar
-nodePar <- list(lab.cex = 0.6, pch = c(NA, 19), 
-                cex = 0.7, col = "blue")
-# Horizontal plot
-plot(hcd,  xlab = "Height",
-     nodePar = nodePar, horiz = TRUE)
+mycol<-c("#73a4a7", "#e1577a", "#b9c189")#"#f6726d", "#b7a204", "#1fbe37","#37cbcd","#7ca9fd","#ee71e1")  #c(brewer.pal(8,'Dark2'),1,2)
+plot(as.phylo(hc),tip.color=mycol[PA_cluster], cex=0.5, no.margin=T)
 
-plot(hcd,  xlab = "Height", nodePar = nodePar, 
-     edgePar = list(col = 2:3, lwd = 2:1))
-
-install.packages("ggdendro")
-library("ggplot2")
-library("ggdendro")
-# Rotate the plot and remove default theme
-ggdendrogram(hc, rotate = TRUE, theme_dendro = FALSE)
-
-#PBD<-phylo.beta.multi(phydataB$comm,phydataB$phy, index.family="sorensen")
-
-#--- k-means clustering ----
-# SP. REDUNDANCY: how many times a branch tip is protected in the total set of PA
-
-install.packages("factoextra")
-library(cluster)    # clustering algorithms
-library(factoextra) # clustering algorithms & visualization
-install.packages("magrittr") # package installations are only needed the first time you use it
-install.packages("dplyr")    # alternative installation of the %>%
-library(magrittr) # needs to be run every time you start R and want to use %>%
-library(dplyr)
-library(tibble)
-library(purrr)
-
-#fviz_dist(df, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-df <- as.dist(as.matrix(PBD_df))
-k2 <- kmeans(PBD_df, centers = 2, nstart = 25)
-str(k2)
-fviz_cluster(k2, data = df)
-
-# check different values of k
-k3 <- kmeans(df, centers = 3, nstart = 25)
-k4 <- kmeans(df, centers = 4, nstart = 25)
-k5 <- kmeans(df, centers = 5, nstart = 25)
-
-# plots to compare
-p1 <- fviz_cluster(k2, geom = "point", data = df) + ggtitle("k = 2")
-p2 <- fviz_cluster(k3, geom = "point",  data = df) + ggtitle("k = 3")
-p3 <- fviz_cluster(k4, geom = "point",  data = df) + ggtitle("k = 4")
-p4 <- fviz_cluster(k5, geom = "point",  data = df) + ggtitle("k = 5")
-
-library(gridExtra)
-grid.arrange(p1, p2, p3, p4, nrow = 2)
-
-
-# determining optimal number of clusters
-set.seed(123)
-
-# function to compute total within-cluster sum of square 
-wss <- function(k) {
-  kmeans(df, k, nstart = 10 )$tot.withinss
-}
-
-# Compute and plot wss for k = 1 to k = 15
-k.values <- 1:15
-
-# extract wss for 2-15 clusters
-wss_values <- map_dbl(k.values, wss)
-
-plot(k.values, wss_values,
-     type="b", pch = 19, frame = FALSE, 
-     xlab="Number of clusters K",
-     ylab="Total within-clusters sum of squares")
-
-
-# Gap Statistic Method
-set.seed(123)
-library(cluster)
-gap_stat <- clusGap(as.matrix(df), FUN = kmeans, nstart = 25,
-                    K.max = 10, B = 50)
-fviz_gap_stat(gap_stat)
-
-# Compute k-means clustering with k = 5
-
-name_lable <- cbind(rownames(PBD_df), 1:nrow(PBD_df))
-write.csv(name_lable, file = "RESULTS/name lables of PA for cluster plot.csv")
-
-df<-as.matrix(PBD_df)
-rownames(df)<- 1:nrow(df)
-df <- as.dist(df)
-set.seed(123)
-final <- kmeans(df, 6, nstart = 25)
-print(final)
-
-fviz_cluster(final, data = df)
-
-PA_cluster <- as.matrix(final$cluster)
-rownames(PA_cluster)<-name_lable[,1]
-#test <- raster(mexicomammalstack_10km)
-
-PA_name <- PAs_aea@data$NOMBRE[47]
 i=1
 for (PA_name in rownames(PA_cluster)){
   PA_single_aea <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
   PA_single_mms <- mask(PAs_R, PA_single_aea)
-  PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name,][[1]]
-  print(PA_cluster[PA_name,][[1]])
+  PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name][[1]]
   names(PA_single_mms)<-PA_name
   if(i ==1){P_sim_PA<-PA_single_mms}else{P_sim_PA <- merge(P_sim_PA, PA_single_mms)}
   i = i+1
 }
 
 P_sim_PA[P_sim_PA==0] <- NA # set non-ground cells to NA
-levelplot(P_sim_PA, par.settings=YlOrRdTheme, margin=F, main=list('Phylogenetic Similarity between PA', cex=2), scales=list(draw=F))+
+
+myTheme <- modifyList(custom.theme(region=mycol),
+                      list(
+                        strip.background=list(col='white'),
+                        panel.background=list(col='white')))
+
+#YlOrRdTheme
+
+levelplot(P_sim_PA, par.settings=myTheme, colorkey=F, margin=F, main=list('Phylogenetic Similarity between PA', cex=2), scales=list(draw=F))+
   latticeExtra::layer(sp.polygons(mexico_aea,lwd=0.5))+
-  latticeExtra::layer(sp.polygons(PAs_aea,lwd=0.5))
+  latticeExtra::layer(sp.polygons(PAs_aea,lwd=0.5))#+
+  #layer(sp.polygons(NEART_aea, lwd=0.5))+
+  #layer(sp.polygons(ZTM_aea, lwd=0.5))
 
-
-PA_cluster <- as.data.frame(cbind(rownames(PA_cluster), PA_cluster))
+# PA and their cluster #
+PA_cluster_vec <- as.data.frame(cbind(rownames(PA_cluster), PA_cluster))
 col <- c( 'Federal Protected Areas','Cluster number')
-colnames(PA_cluster) <- col
-PA_cluster_ranked <- PA_cluster[order(PA_cluster$`Cluster number`),]
+colnames(PA_cluster_vec) <- col
+PA_cluster_ranked <- PA_cluster_vec[order(PA_cluster_vec$`Cluster number`),]
 write.csv(PA_cluster_ranked, file = "RESULTS/cluster of federal protected areas.csv")
 
 
@@ -800,7 +701,7 @@ PA_single_aea <- spTransform(PA_single, crs(mexmam_sr10km_m))
 PA_single_sr <- mask(mexmam_sr10km_m, PA_single_aea)
 PA_single_sr
 plot(mexico_aea)+
-plot(PA_single_aea, add=T)
+  plot(PA_single_aea, add=T)
 
 # make a table with federal protected areas and their maximum PD value
 PA_PD_max_all <- list()
@@ -816,7 +717,7 @@ for(PA_name in PA_names) {
   phydivraster_PA<-setValues(phydivraster_PA, phydiv$PD)
   phydivraster_PA<-mask(phydivraster_PA, PA_single_aea)
   
-  PA_PD_max_all[[i]] <- (maxValue(phydivraster_PA)/PD_mean-1)*100
+  PA_PD_max_all[[i]] <- (maxValue(phydivraster_PA)/PD_mean-1)*100 #14.19698
   i <- i + 1
 }
 
