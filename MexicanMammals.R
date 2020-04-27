@@ -518,6 +518,63 @@ levelplot(Bdivraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main=list
   layer(sp.polygons(PAs_aea,lwa=0.5))
 
 
+
+
+#--- Betadiversity PA with cluster ----
+
+
+PABD_pair <- list()
+#print(paste(nrow(phydataB$comm)))
+PA_comm_BD <- PA_comm_all
+PA_comm_BD[is.na(PA_comm_BD)]<-0
+
+PABD_pair<-beta.pair(PA_comm_BD, index.family="sorensen")$beta.sor
+
+PABDMTX<-as.matrix(PABD_pair)
+save(PABDMTX, file="PABDMTX.RData")
+load("PABDMTX.RData")
+PABD_df<-as.data.frame(PABDMTX)
+PABD_df<-PABD_df[is.na(rowSums(PABD_df))==F,is.na(colSums(PABD_df))==F]
+heatmap(as.matrix(PABD_df),Colv = NA, Rowv = NA, scale="column")
+
+# hierarchical clustering
+df<-as.dist(as.matrix(PABD_df))
+hc<-hclust(df, method = "ward.D")
+
+# optimal number of clusters
+optclust<-NbClust(df,method='ward.D', index='cindex',min.nc=2,max.nc=10)#3
+optclust
+
+PA_cluster<-cutree(hc,k=10)
+mycol<-c("#1d7eff", "#ff3434", "#3daa31", "#0492c2", "#99b038", "#0fa721", "#c70000", "#32cd32", "#384800", "#0a1172")
+#mycol<-c("#429afd", "#d4271e","#3daa31", "#5e9a78", "#115011", "#6b8e23", "#0a1172", "#3daa31", "#53aeb6", "#0327d6", "#b21c1c") #, "#2b976c","#73a4a7", "#e1577a", "#b9c189")#"#f6726d", "#b7a204", "#1fbe37","#37cbcd","#7ca9fd","#ee71e1")  #c(brewer.pal(8,'Dark2'),1,2)
+plot(as.phylo(hc),tip.color=mycol[PA_cluster], cex=0.5, no.margin=T)
+
+PA_cluster<-as.matrix(PA_cluster)
+
+i=1
+for (PA_name in rownames(PA_cluster)){
+  PA_single_aea <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
+  PA_single_mms <- mask(PAs_R, PA_single_aea)
+  PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name,][[1]]
+  names(PA_single_mms)<-PA_name
+  if(i ==1){P_sim_PA<-PA_single_mms}else{P_sim_PA <- merge(P_sim_PA, PA_single_mms)}
+  i = i+1
+}
+
+P_sim_PA[P_sim_PA==0] <- NA # set non-ground cells to NA
+
+myTheme <- modifyList(custom.theme(region=mycol),
+                      list(
+                        strip.background=list(col='white'),
+                        panel.background=list(col='white')))
+
+#YlOrRdTheme
+
+levelplot(P_sim_PA, par.settings=myTheme, colorkey=F, margin=F, main=list('Compositional Similarity between PA', cex=2), scales=list(draw=F))+
+  latticeExtra::layer(sp.polygons(mexico_aea,lwd=0.5))+
+  latticeExtra::layer(sp.polygons(PAs_aea,lwd=0.5))#+
+
 #--- PHYLOGENETIC BETA DIVERSITY ----
 phylogeny <- read.tree("phylogeny.nwk")
 
@@ -526,7 +583,6 @@ communitydataB[is.na(communitydataB)]<-0
 phydataB<-match.phylo.comm(phylogeny, communitydataB)
 
 # the following for-loop calculates only the phylogenetic beta-diversity between the cells outside the protected area with the protected area community cell.
-PBD_multi <- list()
 PBD_pair <- list()
 for (i in 1:(nrow(phydataB$comm)-1)){ 
   print(paste("i=",i))
@@ -542,10 +598,11 @@ PBDraster[PBDraster$PA_MX_Raster != 1] <- PBD_pair # replace cell values outside
 PBDraster[PBDraster$PA_MX_Raster == 1] <- NA # set all cell values of the protected are cells to 0 since that is the beta diversity result for those cells
 
 save(PBDraster, file="PBDrasterV2.RData")
-load("PBDraster.RData") # <-- LOAD THIS!
+load("PBDrasterV2.RData") # <-- LOAD THIS!
 
 levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main=list('Mammal Phylogenetic Beta-Diversity', cex=2), scales=list(draw=F))+
-  layer(sp.polygons(mexico_aea,lwd=0.5))
+  layer(sp.polygons(mexico_aea,lwd=0.5))+
+  layer(sp.polygons(PAs_aea,lwd=0.5))
 
 #--- PBD cell check ----
 
@@ -554,11 +611,11 @@ PBDMTX <- as.matrix(PBD)
 PBDVEC <- PBDMTX[1:(ncol(PBDMTX)-1), cell] #ncol(PBDMTX)]
 PBDVEC[cell]<-NA
 save(PBDMTX, file="PBDMTXv3.RData")
-load("PBDMTXv3.RData")
+load("PBDMTXv4.RData")
 save(PBDVEC, file="PBDVECv2.RData")
 load("BdiversityVEC.RData") # <-- LOAD THIS!
 
-PBDVEC <- PBDMTX[1:(ncol(PBDMTX)-1), cell] #ncol(PBDMTX)]
+PBDVEC <- PBDMTX[1:(ncol(PBDMTX)-1), ncol(PBDMTX)]
 PBDVEC[cell]<-NA
 
 PBDraster<-PAs_R
@@ -569,7 +626,7 @@ names(PBDraster)<-"PBD"
 levelplot(PBDraster$PA_MX_Raster, par.settings=YlOrRdTheme, margin=F, main='Mammal Phylogenetic Beta-Diversity',scales=list(draw=F))+
   layer(sp.polygons(mexico_aea,lwd=0.5))
 
-#--- pairplot of PD and PBD ----
+#--- pairplot of PD and PyloBetaD ----
 PDraster<-phydivraster
 names(PDraster)<-"PD"
 names(PBDraster)<-"PBD"
@@ -587,7 +644,7 @@ names(SRraster)<-"SR"
 PD_SR_stack <- stack(SRraster, PDraster)
 pairs(PD_SR_stack, hist=T, cor=T, use="pairwise.complete.obs") #"Pair-plot of SR vs PD"
 
-#--- pairplot of PBD and BD ----
+#--- pairplot of PyloBetaD and BetaD ----
 names(Bdivraster)<-"BD"
 PBD_BD_stack <- stack(Bdivraster, PBDraster)
 pairs(PBD_BD_stack, hist=T, cor=T, use="pairwise.complete.obs") # Pair-plot of PBD vs BD
@@ -595,8 +652,6 @@ pairs(PBD_BD_stack, hist=T, cor=T, use="pairwise.complete.obs") # Pair-plot of P
 
 #--- PBD PA ----
 PA_names <- as.character(PAs_aea@data$NOMBRE)
-
-PA_name <- PA_names[2]
 
 i <- 1
 for(PA_name in PA_names) {
@@ -650,16 +705,18 @@ hc<-hclust(df, method = "ward.D")
 optclust<-NbClust(df,method='ward.D', index='cindex',min.nc=2,max.nc=10)#3
 optclust
 
-PA_cluster<-cutree(hc,k=3)
-
-mycol<-c("#73a4a7", "#e1577a", "#b9c189")#"#f6726d", "#b7a204", "#1fbe37","#37cbcd","#7ca9fd","#ee71e1")  #c(brewer.pal(8,'Dark2'),1,2)
+PA_cluster<-cutree(hc,k=10)
+mycol<-c("#1d7eff", "#ff3434", "#3daa31", "#0492c2", "#1338be", "#0fa721", "#c70000", "#32cd32", "#384800", "#0a1172")
+#mycol<-c("#429afd", "#d4271e","#3daa31", "#5e9a78", "#115011", "#6b8e23", "#0a1172", "#3daa31", "#53aeb6", "#0327d6", "#b21c1c") #, "#2b976c","#73a4a7", "#e1577a", "#b9c189")#"#f6726d", "#b7a204", "#1fbe37","#37cbcd","#7ca9fd","#ee71e1")  #c(brewer.pal(8,'Dark2'),1,2)
 plot(as.phylo(hc),tip.color=mycol[PA_cluster], cex=0.5, no.margin=T)
+
+PA_cluster<-as.matrix(PA_cluster)
 
 i=1
 for (PA_name in rownames(PA_cluster)){
   PA_single_aea <- PAs_aea[PAs_aea@data$NOMBRE == PA_name,]
   PA_single_mms <- mask(PAs_R, PA_single_aea)
-  PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name][[1]]
+  PA_single_mms[PA_single_mms==1]<-PA_cluster[PA_name,][[1]]
   names(PA_single_mms)<-PA_name
   if(i ==1){P_sim_PA<-PA_single_mms}else{P_sim_PA <- merge(P_sim_PA, PA_single_mms)}
   i = i+1
